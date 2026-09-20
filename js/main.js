@@ -8,25 +8,80 @@
 
 var main = main || {};
 
-document.addEventListener('DOMContentLoaded', evt => {
-  evt.target.getElementById('toggleButton').firstChild.src = assets['images']['off'];
-  evt.target.getElementById('captureButton').firstChild.src = assets['images']['capture'];
-  evt.target.getElementById('undoButton').firstChild.src = assets['images']['undo'];
-  evt.target.getElementById('playButton').firstChild.src = assets['images']['playpause'];
-  evt.target.getElementById('clearButton').firstChild.src = assets['images']['clear'];
-  evt.target.getElementById('saveButton').firstChild.src = assets['images']['save'];
-  evt.target.getElementById('loadButton').firstChild.src = assets['images']['load'];
-});
-
 window.addEventListener('load', evt => {
   // Create Animator object and set up callbacks.
   let video = document.getElementById('video');
   let snapshotCanvas = document.getElementById('snapshot-canvas');
   let playCanvas = document.getElementById('play-canvas');
   let videoMessage = document.getElementById('video-message');
-  let an = new animator.Animator(video, snapshotCanvas, playCanvas, videoMessage);
+  let retryCameraButton = document.getElementById('retryCameraButton');
+  let an = new animator.Animator(
+      video, snapshotCanvas, playCanvas, videoMessage, retryCameraButton);
 
   main.animator = an;
+  an.onionOpacity = 50;
+  an.refreshSummary = () => {
+    document.getElementById('frame-count').textContent = an.frames.length;
+    document.getElementById('duration').textContent = (an.exposures() / an.playbackSpeed).toFixed(2) + ' s';
+    document.getElementById('onionOpacity').value = an.onionOpacity;
+    document.getElementById('onionValue').textContent = an.onionOpacity + '%';
+    snapshotCanvas.style.opacity = an.onionOpacity / 100;
+    document.getElementById('flipButton').setAttribute('aria-pressed', an._flip);
+    const actual = an.streamOn && video.readyState >= 2 ? `${video.videoWidth}×${video.videoHeight}` : 'waiting';
+    if (an.streamOn && video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+      const scale = Math.min(1, an.w / video.videoWidth, an.h / video.videoHeight);
+      const width = video.videoWidth * scale / an.w * 100;
+      const height = video.videoHeight * scale / an.h * 100;
+      video.style.width = width + '%'; video.style.height = height + '%';
+      video.style.left = (100 - width) / 2 + '%'; video.style.top = (100 - height) / 2 + '%';
+    }
+    document.getElementById('resolutionStatus').textContent = `Project ${an.w}×${an.h} · Camera ${actual}`;
+    document.getElementById('captureLimit').textContent = 'Up to 2,000 frames / 2 GiB compressed media. Decoded cache: up to 8 frames / 16 MiPixels. Storage quota varies; download backups.';
+  };
+  document.getElementById('onionOpacity').addEventListener('input', event => {
+    if (an.projectBusy || an.loadInProgress) return;
+    an.onionOpacity = Number(event.target.value);
+    an.onProjectChange?.();
+  });
+  let progressRequest = null;
+  an.onPlaybackState = playing => {
+    const button = document.getElementById('playButton');
+    button.textContent = playing ? '■ Stop' : '▶ Play';
+    button.setAttribute('aria-label', playing ? 'Stop animation' : 'Play animation');
+    button.setAttribute('aria-pressed', playing);
+    const marker = document.getElementById('progress-marker');
+    const progress = document.getElementById('progress-container');
+    cancelAnimationFrame(progressRequest);
+    const tick = () => {
+      const duration = an.playEnds?.at(-1) || 1;
+      const percent = Math.min(100, Math.max(0, (performance.now() - an.zeroPlayTime) / duration * 100));
+      marker.style.transform = `translateX(${percent - 100}%)`;
+      progress.setAttribute('aria-valuenow', Math.round(percent));
+      progressRequest = requestAnimationFrame(tick);
+    };
+    marker.style.transform = 'translateX(-100%)';
+    progress.setAttribute('aria-valuenow', 0);
+    if (playing) progressRequest = requestAnimationFrame(tick);
+  };
+  let cameraRefreshGeneration = 0;
+  let refreshCameraList = (() => { return Promise.resolve([]); });
+  let attachCamera = (sourceId => {
+    cameraRefreshGeneration++;
+    return an.attachStream(sourceId).then(stream => {
+      if (stream)
+        refreshCameraList(sourceId);
+      return stream;
+    });
+  });
+  retryCameraButton.addEventListener('click', () => {
+    attachCamera(an.cameraErrorSourceId || an.videoSourceId);
+  });
+
+  window.addEventListener('pagehide', () => {
+    an.invalidateProject();
+    an.endPlay();
+    an.detachStream();
+  });
 
   let playbackSpeedSelector = document.getElementById('playbackSpeed');
   let playbackSpeed = (() => {
@@ -54,6 +109,7 @@ window.addEventListener('load', evt => {
   let saveDialog = document.getElementById('saveDialog');
   let fileNameInput = saveDialog.querySelector('input');
   let saveCB = () => {
+    if (an.projectBusy || an.loadInProgress) return;
     let value = fileNameInput.value;
     if (!value.length)
       value = 'StopMotion';
@@ -72,6 +128,7 @@ window.addEventListener('load', evt => {
       topContainer.removeEventListener('click', captureClicks, true);
     }).catch(err => {
       console.log(err);
+      document.getElementById('timelineMessage').textContent = 'Export failed: ' + (err.message || err);
       topContainer.style.opacity = null;
       topContainer.removeEventListener('click', captureClicks, true);
     });
@@ -81,6 +138,8 @@ window.addEventListener('load', evt => {
   let undoButton = document.getElementById('undoButton');
   let clearConfirmDialog = document.getElementById('clearConfirmDialog');
   window.addEventListener("keydown", (e => {
+    if (an.projectBusy || an.loadInProgress) return;
+    if (e.repeat || e.metaKey || e.target.closest('input, button, select, textarea, [contenteditable], [role="button"], dialog')) return;
     if (e.altKey || e.ctrlKey || e.shiftKey || clearConfirmDialog.open || saveDialog.open)
       return;
     if (e.code == "Space") {
@@ -95,14 +154,16 @@ window.addEventListener('load', evt => {
 
   let toggleButton = document.getElementById('toggleButton');
   toggleButton.addEventListener("click", evt => {
+    cameraRefreshGeneration++;
     an.toggleVideo().then(isPlaying => {
       if (isPlaying) {
-        toggleButton.firstChild.src = assets['images']['off'];
+        toggleButton.textContent = 'Camera On/Off';
+        refreshCameraList(an.videoSourceId);
       } else {
-        toggleButton.firstChild.src = assets['images']['on'];
+        toggleButton.textContent = 'Turn camera on';
       }
     }).catch(err => {
-      toggleButton.firstChild.src = assets['images']['off'];
+      toggleButton.textContent = 'Retry camera';
     });
   });
 
@@ -112,48 +173,23 @@ window.addEventListener('load', evt => {
   });
 
   let thumbnailContainer = document.getElementById('thumbnail-container');
-  let thumbnailWidth = 96;
-  let thumbnailHeight = 72;
-  captureButton.addEventListener("click", evt => {
-    an.capture();
-    let thumbnail = document.createElement('canvas');
-    let w = thumbnailWidth;
-    let h = thumbnailHeight;
-    thumbnail.width = thumbnailWidth;
-    thumbnail.height = thumbnailHeight;
-    thumbnail.getContext('2d', { alpha: false }).drawImage(
-      an.frames[an.frames.length-1], 0, 0, thumbnailWidth, thumbnailHeight);
-    thumbnailContainer.appendChild(thumbnail);
+  captureButton.addEventListener("click", async evt => {
+    let frame = await an.capture();
+    if (!frame)
+      return;
     pressButton(captureButton);
   });
 
   undoButton.addEventListener("click", evt => {
     an.undoCapture();
-    if (thumbnailContainer.lastElementChild)
-      thumbnailContainer.removeChild(thumbnailContainer.lastElementChild);
     pressButton(undoButton);
   });
 
   let progressMarker = document.getElementById("progress-marker");
-  progressMarker.addEventListener("animationend", () => {
-    progressMarker.classList.toggle("slide-right");
-    progressMarker.style.transform = "translateX(0px)";
-    setTimeout(() => {
-      progressMarker.style.transform = "";
-    }, 1000);
-  });
 
   let flipButton = document.getElementById('flipButton');
   flipButton.addEventListener("click", evt => {
-    let style = video.attributeStyleMap;
-    let transform = style.get("transform");
-    if (!transform) {
-      transform = new CSSTransformValue([new CSSRotate(CSS.deg(0))]);
-    }
-    let angle = transform[0].angle.value;
-    angle = (angle + 180) % 360;
-    transform[0] = new CSSRotate(CSS.deg(angle));
-    style.set("transform", transform);
+    video.classList.toggle('rotated');
     an.flip();
   });
 
@@ -196,14 +232,14 @@ window.addEventListener('load', evt => {
     } else {
       clockContainer.style.display = "none";
     }
+    clockButton.setAttribute('aria-pressed', clockContainer.style.display !== 'none');
   });
 
   let playButton = document.getElementById('playButton');
   playButton.addEventListener("click", evt => {
+    if (an.projectBusy || an.loadInProgress) return;
     let p = an.togglePlay();
-    if (an.isPlaying) {
-      progressMarker.style.animationDuration = (an.frames.length / playbackSpeed()) + "s";
-      progressMarker.classList.add("slide-right");
+    if (an.isPlaying()) {
       startClock(performance.now(), 0);
       p.then(resetClock);
     } else {
@@ -214,8 +250,6 @@ window.addEventListener('load', evt => {
 
   let clearButton = document.getElementById('clearButton');
   clearButton.addEventListener("click", evt => {
-    if (!an.frames.length)
-      return;
     clearConfirmDialog.showModal();
   });
 
@@ -253,118 +287,90 @@ window.addEventListener('load', evt => {
     fileInput.type = "file";
     fileInput.addEventListener("change", evt => {
       if (evt.target.files[0]) {
+        if (an.projectBusy || an.loadInProgress) return;
         showSpinner();
         an.load(evt.target.files[0], hideSpinner, frameRate => {
           playbackSpeedSelector.value = frameRate;
+          an.setPlaybackSpeed(frameRate);
         });
       }
     }, false);
     fileInput.click();
   });
 
-  let audioStream;
-  let isRecording = false;
-  let recordingIcons = document.querySelectorAll('.recording');
-  let notRecordingIcons = document.querySelectorAll('.not-recording');
-  let countdown = document.getElementById('countdown');
-  let updateRecordingIcons = (showNotRecording, showCountdown, showRecording) => {
-    recordingIcons.forEach(e => { e.style.display = (showRecording ? "" : "none") });
-    notRecordingIcons.forEach(e => { e.style.display = (showNotRecording ? "" : "none") });
-    countdown.style.display = (showCountdown ? "" : "none");
-  };
-  updateRecordingIcons(true, false, false);
-
-  countdown.addEventListener("animationstart", evt => {
-    evt.currentTarget.firstElementChild.innerHTML = "3";
-  });
-  countdown.addEventListener("animationiteration", evt => {
-    let t = evt.currentTarget.firstElementChild;
-    t.innerHTML = (parseInt(t.innerHTML) - 1).toString();
-  });
-  countdown.addEventListener("animationend", evt => {
-    evt.currentTarget.firstElementChild.innerHTML = "";
-    if (isRecording) {
-      progressMarker.style.animationDuration = (an.frames.length / playbackSpeed()) + "s";
-      progressMarker.classList.add("slide-right");
-      startClock();
-      an.recordAudio(audioStream).then(() => {
-        isRecording = false;
-        updateRecordingIcons(true, false, false);
-        audioStream.getAudioTracks()[0].stop();
-        audioStream = null;
-        resetClock();
-      });
-      updateRecordingIcons(false, false, true);
-    } else {
-      updateRecordingIcons(true, false, false);
-    }
-  });
-
-  let recordAudioButton = document.getElementById('recordAudioButton');
-  recordAudioButton.addEventListener("click", evt => {
-    if (!an.frames.length)
+  let cameraSelect = null;
+  let updateCameraSelect = ((cameras, selectedId) => {
+    cameras = cameras || [];
+    if (cameras.length < 2) {
+      if (cameraSelect) {
+        cameraSelect.parentElement.remove();
+        cameraSelect = null;
+      }
       return;
-    if (isRecording) {
-      an.endPlay();
-      updateRecordingIcons(true, false, false);
-      isRecording = false;
-    } else if (self.navigator &&
-               navigator.mediaDevices &&
-               navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({audio: true, video: false})
-          .then(stream => {
-        audioStream = stream;
-        updateRecordingIcons(false, true, false);
-      });
-      isRecording = true;
-    } else {
-      isRecording = false;
     }
+    if (!cameraSelect) {
+      let videoColumnDiv = document.getElementById('camera-settings');
+      let selectDiv = document.createElement('div');
+      videoColumnDiv.appendChild(selectDiv);
+      cameraSelect = document.createElement('select');
+      cameraSelect.id = 'camera-select';
+      cameraSelect.setAttribute('aria-label', 'Camera device');
+      selectDiv.appendChild(cameraSelect);
+      cameraSelect.onchange = e => {
+        attachCamera(e.target.value || undefined);
+      };
+    }
+    let currentId = selectedId || cameraSelect.value;
+    cameraSelect.innerHTML = '';
+    cameras.forEach((camera, index) => {
+      let cameraOption = document.createElement('option');
+      cameraOption.value = camera.deviceId;
+      cameraOption.innerText = camera.label || 'Camera ' + (index + 1);
+      cameraSelect.appendChild(cameraOption);
+    });
+    if (cameras.some(camera => camera.deviceId === currentId))
+      cameraSelect.value = currentId;
+    else if (cameras.length)
+      cameraSelect.value = cameras[0].deviceId;
   });
 
-  let clearAudioButton = document.getElementById('clearAudioButton');
-  clearAudioButton.addEventListener("click", an.clearAudio.bind(an));
+  refreshCameraList = (selectedId => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices)
+      return Promise.resolve([]);
+    let refreshGeneration = ++cameraRefreshGeneration;
+    return navigator.mediaDevices.enumerateDevices().then(devices => {
+      if (refreshGeneration !== cameraRefreshGeneration)
+        return [];
+      let cameras = devices.filter(d => { return d.kind == 'videoinput'; });
+      updateCameraSelect(cameras, selectedId);
+      return cameras;
+    }).catch(() => {
+      return [];
+    });
+  });
 
   let setUpCameraSelectAndAttach = cameras => {
-    if (!cameras || cameras.length < 2) {
-      an.attachStream();
-      return;
-    }
-    let videoColumnDiv = document.getElementById('video-column');
-    let selectDiv = document.createElement('div');
-    videoColumnDiv.appendChild(selectDiv);
-    let cameraSelect = document.createElement('select');
-    cameraSelect.id = 'camera-select';
-    selectDiv.appendChild(cameraSelect);
-    for (let i = 0; i < cameras.length; i++) {
-      let cameraOption = document.createElement('option');
-      cameraOption.value = cameras[i];
-      cameraOption.innerText = 'Camera ' + (i + 1);
-      cameraSelect.appendChild(cameraOption);
-      if (i === 0)
-        cameraOption.selected = true;
-    }
-    cameraSelect.onchange = e => {
-      an.detachStream();
-      an.attachStream(e.target.value);
-    };
-    an.attachStream(cameras[0].deviceId);
+    cameras = cameras || [];
+    updateCameraSelect(cameras, cameras.length ? cameras[0].deviceId : undefined);
+    attachCamera(cameras.length ? cameras[0].deviceId : undefined);
   };
 
+  main.timeline = stopTimeline.connect(an);
+  main.project = stopProject.connect(an);
+
   // Everything is set up, now connect to camera.
-  if (self.navigator && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
+      navigator.mediaDevices.enumerateDevices) {
     navigator.mediaDevices.enumerateDevices().then(devices => {
       setUpCameraSelectAndAttach(
-          devices.filter(d => { return d.kind == 'videoinput'; })
-                 .map(d => { return d.deviceId; }));
+          devices.filter(d => { return d.kind == 'videoinput'; }));
+    }).catch(error => {
+      an.showCameraError(error);
+      attachCamera();
     });
-  } else if (self.MediaStreamTrack && MediaStreamTrack.getSources) {
-    MediaStreamTrack.getSources(sources => {
-      setUpCameraSelectAndAttach(
-          sources.filter(d => { return d.kind == 'video'; })
-                 .map(d => { return d.id; }));
-      });
-  } else {
+  } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     setUpCameraSelectAndAttach();
+  } else {
+    an.showCameraError({name: 'NotSupportedError'});
   }
 });

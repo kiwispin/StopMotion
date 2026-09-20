@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StopMotion device probe</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; line-height: 1.45; color:#111; }
+  pre { white-space: pre-wrap; word-break: break-word; background:#111; color:#3f6; padding:12px; border-radius:8px; font-size:12px; }
+  button { font-size:20px; padding:14px 22px; border-radius:10px; border:1px solid #888; background:#f0f0f0; }
+  canvas#stage { width:320px; height:180px; border:1px solid #ccc; }
+  .hint { color:#555; max-width:640px; }
+</style></head>
+<body>
+<h1>StopMotion device probe</h1>
+<p class="hint">Open this page on the target device (iPad / Chromebook / desktop), tap <b>Run probe</b>, wait for it to finish, then photograph or copy the result box. Nothing is uploaded.</p>
+<p><button id="run">Run probe</button></p>
+<canvas id="stage" width="1280" height="720"></canvas>
+<pre id="out">Ready.</pre>
+<script>
+(() => {
+  const out = document.getElementById('out');
+  const stage = document.getElementById('stage');
+  const report = {};
+  const lines = [];
+  const note = (k, v) => { report[k] = v; lines.push(k + ': ' + JSON.stringify(v)); out.textContent = lines.join('\n'); };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const withTimeout = (p, ms, label) => Promise.race([p, sleep(ms).then(() => { throw new Error(label + ' timed out'); })]);
+
+  function environment() {
+    const md = navigator.userAgentData || {};
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform || null,
+      uaPlatform: md.platform || null,
+      uaMobile: typeof md.mobile === 'boolean' ? md.mobile : null,
+      hardwareConcurrency: navigator.hardwareConcurrency || null,
+      deviceMemoryGB: navigator.deviceMemory || null,
+      screen: screen.width + 'x' + screen.height + '@' + (window.devicePixelRatio || 1),
+      insecureOrigin: !window.isSecureContext,
+      webAssembly: typeof WebAssembly === 'object'
+    };
+  }
+
+  function detect() {
+    const mimes = ['video/mp4;codecs=avc1.42E01E','video/mp4','video/mp4;codecs=h264',
+      'video/webm;codecs=vp8','video/webm;codecs=vp9','audio/mp4','audio/webm;codecs=opus'];
+    const support = {};
+    for (const m of mimes) support[m] = !!(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m));
+    return {
+      hasMediaRecorder: typeof MediaRecorder === 'function',
+      hasVideoEncoder: typeof window.VideoEncoder === 'function',
+      hasAudioEncoder: typeof window.AudioEncoder === 'function',
+      hasCaptureStream: typeof HTMLCanvasElement.prototype.captureStream === 'function',
+      hasRequestVideoFrameCallback: typeof HTMLVideoElement.prototype.requestVideoFrameCallback === 'function',
+      mediaRecorderTypeSupport: support
+    };
+  }
+
+  async function webpEncodeTest() {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const g = c.getContext('2d'); g.fillStyle = '#c33'; g.fillRect(0, 0, 64, 64);
+    try {
+      const blob = await withTimeout(new Promise(res => c.toBlob(res, 'image/webp', 0.98)), 5000, 'toBlob webp');
+      return { requested: 'image/webp', gotType: blob ? blob.type : null, bytes: blob ? blob.size : 0 };
+    } catch (e) { return { error: String(e.message || e) }; }
+  }
+
+  function drawFrame(g, w, h, i, total) {
+    const t = i / Math.max(1, total - 1);
+    g.fillStyle = 'hsl(' + Math.round(t * 300) + ' 80% 45%)';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#fff';
+    g.fillRect(Math.round(t * (w - 80)), 0, 80, h);
+    g.fillStyle = '#000';
+    g.font = 'bold 96px sans-serif';
+    g.fillText(String(i), 40, h - 40);
+  }
+
+  async function canvasRecordTest(w, h, frames, fps) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d');
+    drawFrame(g, w, h, 0, frames);
+    if (typeof c.captureStream !== 'function') return { error: 'no captureStream' };
+    const stream = c.captureStream(fps);
+    const preferred = ['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp8','video/webm']
+      .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m));
+    let recorder;
+    try { recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined); }
+    catch (e) { return { error: 'MediaRecorder ctor: ' + (e.message || e) }; }
+    const chunks = [];
+    recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => { recorder.onstop = res; });
+    let drawError = null;
+    recorder.start();
+    const started = performance.now();
+    await new Promise(resolve => {
+      let i = 0;
+      const timer = setInterval(() => {
+        try { drawFrame(g, w, h, i, frames); } catch (e) { drawError = String(e.message || e); }
+        if (++i >= frames) { clearInterval(timer); resolve(); }
+      }, Math.round(1000 / fps));
+    });
+    const drawMs = Math.round(performance.now() - started);
+    await sleep(150);
+    recorder.stop();
+    await withTimeout(stopped, 10000, 'recorder stop');
+    stream.getTracks().forEach(t => t.stop());
+    const blob = new Blob(chunks, { type: recorder.mimeType || preferred || 'video/mp4' });
+    const result = { requested: preferred || '(default)', actual: recorder.mimeType || null,
+      blobType: blob.type, bytes: blob.size, drawnFrames: frames, drawMs, drawFps: +(frames / (drawMs / 1000)).toFixed(1) };
+    if (!blob.size) { result.error = 'empty recording'; return result; }
+    const video = document.createElement('video');
+    video.muted = true; video.playsInline = true;
+    video.src = URL.createObjectURL(blob);
+    try {
+      await withTimeout(new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = () => rej(new Error('video error ' + (video.error && video.error.code))); }), 10000, 'metadata');
+      result.videoSize = video.videoWidth + 'x' + video.videoHeight;
+      result.duration = video.duration;
+      const samples = [];
+      for (const frac of [0.1, 0.5, 0.9]) {
+        const t = Math.max(0, Math.min((video.duration || 1) - 0.05, (video.duration || 1) * frac));
+        await withTimeout(new Promise(res => { video.onseeked = res; video.currentTime = t; }), 8000, 'seek');
+        const sc = document.createElement('canvas'); sc.width = 64; sc.height = 36;
+        const sg = sc.getContext('2d'); sg.drawImage(video, 0, 0, 64, 36);
+        const d = sg.getImageData(0, 0, 64, 36).data;
+        let sum = 0, nonBlack = 0, sig = 0;
+        for (let i = 0; i < d.length; i += 4) { const v = d[i] + d[i+1] + d[i+2]; sum += v; if (v > 40) nonBlack++; sig = (sig * 31 + v) >>> 0; }
+        const n = d.length / 4;
+        samples.push({ at: +t.toFixed(2), mean: Math.round(sum / n), nonBlackPct: Math.round(nonBlack / n * 100), sig });
+      }
+      result.samples = samples;
+      const sigs = new Set(samples.map(s => s.sig));
+      result.contentVaries = sigs.size > 1;
+      result.looksBlank = samples.every(s => s.nonBlackPct < 2);
+    } catch (e) { result.playbackError = String(e.message || e); }
+    finally { URL.revokeObjectURL(video.src); }
+    if (drawError) result.drawError = drawError;
+    return result;
+  }
+
+  async function run() {
+    document.getElementById('run').disabled = true;
+    try {
+      note('environment', environment());
+      note('capabilities', detect());
+      note('webpEncode', await webpEncodeTest());
+      note('record1280x720@24', await canvasRecordTest(1280, 720, 72, 24));
+      note('record640x480@24', await canvasRecordTest(640, 480, 72, 24));
+      note('done', new Date().toISOString());
+    } catch (e) {
+      note('fatal', String(e && e.message || e));
+    } finally {
+      document.getElementById('run').disabled = false;
+    }
+  }
+  document.getElementById('run').addEventListener('click', run);
+})();
+</script>
+</body></html>

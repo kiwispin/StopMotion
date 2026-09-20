@@ -826,7 +826,7 @@ var webm = webm || {};
       arr.push((l >> 8) & 0xff);
       arr.push(l & 0xff);
     } else if (l <= 0xffffffff) {
-      arr.push(0x80);
+      arr.push(0x08); // Five-byte VINT marker, not the one-byte marker.
       arr.push(l >> 24);
       arr.push((l >> 16) & 0xff);
       arr.push((l >> 8) & 0xff);
@@ -968,7 +968,7 @@ var webm = webm || {};
     return encodeDataChunk('Info', blockChunks, len, chunks);
   });
 
-  let encodeVideoTrackEntry = ((num, uid, w, h, chunks) => {
+  let encodeVideoTrackEntry = ((num, uid, w, h, chunks, compatibility) => {
     let blockChunks = [];
     let blockLen = encodeUintChunk('TrackNumber', num, blockChunks);
     blockLen += encodeUintChunk('TrackUID', uid, blockChunks);
@@ -978,7 +978,8 @@ var webm = webm || {};
     blockLen += encodeUintChunk('FlagDefault', 1, blockChunks);
     blockLen += encodeUintChunk('FlagLacing', 0, blockChunks);
     blockLen += encodeStringChunk('CodecName', 'VP8', blockChunks);
-    blockLen += encodeStringChunk('CodecID', 'V_VP8', blockChunks);
+      blockLen += encodeStringChunk('CodecID', 'V_VP8', blockChunks);
+      blockLen += encodeStringChunk('Name', 'StopMotionCompat/1:' + JSON.stringify(compatibility), blockChunks);
     let videoChunks = [];
     let videoLen = encodeUintChunk('FlagInterlaced', 0, videoChunks);
     videoLen += encodeUintChunk('PixelHeight', h, videoChunks);
@@ -987,11 +988,11 @@ var webm = webm || {};
     return encodeDataChunk('TrackEntry', blockChunks, blockLen, chunks);
   });
 
-  let encodeTracks = ((videoTrackNum, videoTrackUid, w, h, chunks, audioTrackEntryChunk) => {
+  let encodeTracks = ((videoTrackNum, videoTrackUid, w, h, chunks, audioTrackEntryChunk, compatibility) => {
     let tracksChunks = [];
     let tracksLength = 0;
     if (videoTrackUid)
-      tracksLength += encodeVideoTrackEntry(videoTrackNum, videoTrackUid, w, h, tracksChunks);
+      tracksLength += encodeVideoTrackEntry(videoTrackNum, videoTrackUid, w, h, tracksChunks, compatibility);
     if (audioTrackEntryChunk) {
       tracksLength += encodeDataChunk(
           'TrackEntry', [audioTrackEntryChunk], audioTrackEntryChunk.byteLength, tracksChunks);
@@ -1029,24 +1030,30 @@ var webm = webm || {};
       }
       let clusterRelativeTimecode = audioBlock[0] - clusterStart;
       setBlockTimecode(audioBlock[1], clusterRelativeTimecode);
-      result += encodeChunkHeader('SimpleBlock', audioBlock[1].byteLength, chunks);
-      chunks.push(audioBlock[1]);
+      // Group bytes retain DiscardPadding, BlockDuration and other codec attributes.
+      // audioBlock[1] is a view into these owned bytes, so timecode updates apply too.
+      const data = audioBlock[2] || audioBlock[1];
+      result += encodeChunkHeader(audioBlock[2] ? 'BlockGroup' : 'SimpleBlock', data.byteLength, chunks);
+      chunks.push(data);
     }
     return result;
   });
 
-  let encodeVideoFrame = ((clusterStart, timeCode, track, vp8, audioBlocks, chunks) => {
+  let encodeVideoFrame = ((clusterStart, timeCode, track, vp8, audioBlocks, chunks, duration) => {
     let result = addAudioBlocks(clusterStart, timeCode, audioBlocks, chunks);
     let videoBlockChunks = [];
     let encodedTrackNum = encodeLength(track);
     let encodedTimeCode = encodeInt(timeCode - clusterStart, 2);
-    let encodedFlags = encodeUint(0x80);  // Block contains keyframes only
+    let encodedFlags = new Uint8Array([0]); // BlockGroup without ReferenceBlock is a keyframe.
     videoBlockChunks.push(encodedTrackNum);
     videoBlockChunks.push(encodedTimeCode);
     videoBlockChunks.push(encodedFlags);
     videoBlockChunks.push(vp8);
     let videoBlockLength = vp8.byteLength + encodedFlags.byteLength + encodedTimeCode.byteLength + encodedTrackNum.byteLength;
-    result += encodeDataChunk('SimpleBlock', videoBlockChunks, videoBlockLength, chunks);
+    let group = [];
+    let groupLength = encodeDataChunk('Block', videoBlockChunks, videoBlockLength, group);
+    groupLength += encodeUintChunk('BlockDuration', duration, group);
+    result += encodeDataChunk('BlockGroup', group, groupLength, chunks);
     return result;
   });
 
@@ -1367,7 +1374,8 @@ var webm = webm || {};
     if (!webmBuffer)
       return null;
 
-    webmBuffer = new Uint8Array(webmBuffer);
+    // Track renumbering must never change the caller's recording/project buffer.
+    webmBuffer = new Uint8Array(webmBuffer).slice();
     let segment = new Cursor(webmBuffer).findChunk('Segment');
     let info = segment.cursor.findChunk('Info');
     let timecodeScale = info.cursor.findChunk('TimecodeScale');
@@ -1409,11 +1417,17 @@ var webm = webm || {};
          cluster;
          cluster = segmentCursor.findChunk('Cluster')) {
       let clusterTimecode = cluster.cursor.findChunk('Timecode');
-      let clusterStartTime = decodeUint(clusterTimecode.cursor);
+      let clusterStartTime = Number(decodeUint(clusterTimecode.cursor));
       let clusterCursor = cluster.cursor;
-      for (let block = clusterCursor.findChunk('SimpleBlock');
+      for (let block = clusterCursor.findChunk();
            block;
-           block = clusterCursor.findChunk('SimpleBlock')) {
+           block = clusterCursor.findChunk()) {
+        let group = null;
+        if (block.type === 'BlockGroup') {
+          group = block;
+          block = group.cursor.findChunk('Block');
+          if (!block) continue;
+        } else if (block.type !== 'SimpleBlock') continue;
         let blockCursor = block.cursor;
         let trackNumIdx = blockCursor.idx;
         let decodedTrackNum = decodeLength(blockCursor);
@@ -1424,9 +1438,11 @@ var webm = webm || {};
             throw "encoded length size mismatch while munging audio track number";
           webmBuffer.set(lengthEncodedTrackNum, trackNumIdx);
         }
-        let blockTimeCode = decodeUint(new Cursor(blockCursor.data, blockCursor.idx, blockCursor.idx + 2));
-        audioBlocks.push([clusterStartTime + blockTimeCode,
-                          webmBuffer.slice(block.idx, block.idx + block.length)]);
+        let blockTimeCode = decodeInt(new Cursor(blockCursor.data, blockCursor.idx, blockCursor.idx + 2));
+        const groupData = group ? webmBuffer.slice(group.idx, group.idx + group.length) : null;
+        const data = groupData ? groupData.subarray(block.idx - group.idx, block.idx - group.idx + block.length) :
+          webmBuffer.slice(block.idx, block.idx + block.length);
+        audioBlocks.push([clusterStartTime + blockTimeCode, data, groupData]);
       }
     }
     // Put audioBlocks in reverse order, so that successive calls to pop() will
@@ -1436,34 +1452,9 @@ var webm = webm || {};
   });
 
   let webpToVP8 = (blob => {
-    let promise = new Promise((resolve, reject) => {
-      let fr = new FileReader();
-      fr.addEventListener("load", evt => {
-        let header = new Uint8Array(fr.result.slice(12, 16));
-        if (arrayEq(header, vp8Header) || arrayEq(header, vp8lHeader)) {
-          resolve(new Uint8Array(fr.result.slice(20)));
-        } else if (arrayEq(header, vp8xHeader)) {
-          let position = 30;
-          while (position < fr.result.byteLength) {
-            let subheader = new Uint8Array(fr.result.slice(position, position + 4));
-            let l = decodeUint(new Cursor((new Uint8Array(fr.result.slice(position + 4, position + 8))).reverse()));
-            if (arrayEq(subheader, vp8Header) || arrayEq(subheader, vp8lHeader)) {
-              resolve(new Uint8Array(fr.result.slice(position + 8, position + 8 + l)));
-              return;
-            }
-            position += (l + 8);
-          }
-          reject("Could not locate VP8 or VP8L data section of webp");
-        } else {
-          reject("Unrecognized VP8 ChunkHeader: " + decodeString(new Cursor(header)));
-        }
-      });
-      fr.addEventListener("error", evt => {
-	      reject(fr.error);
-      });
-      fr.readAsArrayBuffer(blob);
-    });
-    return promise;
+    if (!(blob instanceof Blob) || blob.type !== 'image/webp')
+      return Promise.reject(new Error('Invalid WebP frame. Save Project and retry export.'));
+    return blob.arrayBuffer().then(stopMedia.vp8Payload);
   });
 
   class Encoder {
@@ -1471,8 +1462,14 @@ var webm = webm || {};
       this.title = title;
       this.w = w;
       this.h = h;
-      this.frameDuration = Math.round(frameDuration);
-      this.webpPromises = webpPromises;
+      this.frameDuration = frameDuration;
+      this.exposureCount = webpPromises.length;
+      if (this.exposureCount && (!Number.isFinite(frameDuration) || frameDuration < 8))
+        throw new Error('Export frame interval must be at least 8ms.');
+      // Seven extra coded copies subdivide only the last exposure. No extra pose,
+      // playback time or image encoding; required for VLC 3 automatic-thread drain.
+      this.webpPromises = webpPromises.slice();
+      if (this.exposureCount) this.webpPromises.push(...Array(7).fill(webpPromises[webpPromises.length - 1]));
       this.audioBuffer = audioBuffer;
 
       if (webpPromises.length) {
@@ -1504,7 +1501,7 @@ var webm = webm || {};
       let promise = new Promise(((resolve, reject) => {
         let videoTrackUid = this.webpPromises.length ? 1 : 0;
         let audioTrackEntryChunk = getAudioBlocks(this.audioBuffer, this.audioTrackNum, this.audioBlocks);
-        let segmentDuration = this.frameDuration * this.webpPromises.length;
+        let segmentDuration = this.frameDuration * this.exposureCount;
         if (this.audioBlocks.length)
           segmentDuration = Math.max(segmentDuration, this.audioBlocks[0][0]);
 
@@ -1516,7 +1513,8 @@ var webm = webm || {};
         this.position += encodeSegmentInfo(segmentDuration, this.title, this.segmentChunks);
 
         mungePositions(this.seekHeaderPositions.Tracks, this.position);
-        this.position += encodeTracks(this.videoTrackNum, videoTrackUid, this.w, this.h, this.segmentChunks, audioTrackEntryChunk);
+        this.position += encodeTracks(this.videoTrackNum, videoTrackUid, this.w, this.h, this.segmentChunks,
+          audioTrackEntryChunk, [this.exposureCount, this.frameDuration, 8]);
 
         if (this.webpPromises.length) {
           this.encodeNextCluster(resolve, reject);
@@ -1527,9 +1525,16 @@ var webm = webm || {};
       return promise;
     }
 
+    packetTime(index) {
+      if (index < this.exposureCount) return Math.round(index * this.frameDuration);
+      const start = Math.round((this.exposureCount - 1) * this.frameDuration);
+      const end = this.exposureCount * this.frameDuration;
+      return Math.round(start + (end - start) * (index - this.exposureCount + 1) / 8);
+    }
+
     encodeNextCluster(resolve, reject) {
       this.clusterChunks = [];
-      this.clusterStart = this.frameNum * this.frameDuration;
+      this.clusterStart = this.packetTime(this.frameNum);
       if (this.audioBlocks.length)
           this.clusterStart = Math.min(this.clusterStart, this.audioBlocks[this.audioBlocks.length-1][0]);
       this.blockNum = 0;
@@ -1557,26 +1562,25 @@ var webm = webm || {};
     }
 
     encodeNextBlock(resolve, reject) {
-      if (this.frameNum >= this.webpPromises.length || (this.frameNum * this.frameDuration) - this.clusterStart > 0x7fff) {
+      if (this.frameNum >= this.webpPromises.length || this.packetTime(this.frameNum) - this.clusterStart > 0x7fff) {
         this.finishCluster(resolve, reject);
         return;
       }
       let audioBlocksLength = this.audioBlocks.length;
-      let frameTime = this.frameNum * this.frameDuration;
+      let frameTime = this.packetTime(this.frameNum);
       this.webpPromises[this.frameNum++].then((blob => {
-        webpToVP8(blob).then((vp8 => {
-          this.clusterLength += encodeVideoFrame(this.clusterStart, frameTime, this.videoTrackNum, vp8, this.audioBlocks, this.blockChunks);
+        return webpToVP8(blob).then((vp8 => {
+          this.clusterLength += encodeVideoFrame(this.clusterStart, frameTime, this.videoTrackNum, vp8,
+            this.audioBlocks, this.blockChunks, this.packetTime(this.frameNum) - frameTime);
           this.blockNum += audioBlocksLength - this.audioBlocks.length;
-          if (frameTime - this.lastCuePoint > 1000) {
+          if (this.frameNum <= this.exposureCount && frameTime - this.lastCuePoint > 1000) {
             this.lastCuePoint = frameTime;
-            this.cueLength += encodeCuePoint(frameTime, this.videoTrackNum, this.blockNum, this.clusterPosition, this.cueChunks);
+            this.cueLength += encodeCuePoint(frameTime, this.videoTrackNum, this.blockNum + 1, this.clusterPosition, this.cueChunks);
           }
           this.blockNum++;
           this.encodeNextBlock(resolve, reject);
-        }).bind(this)).catch(err => {
-  	console.log(err);
-        });
-      }).bind(this));
+        }).bind(this));
+      }).bind(this)).catch(reject);
     }
 
     encodeTrailingAudio() {
@@ -1667,6 +1671,7 @@ var webm = webm || {};
 
     let w = -1, h = -1;
     let videoTrackNum = -1;
+    let compatibility = null;
     let tracksCursor = tracks.cursor;
     for (let entry = tracksCursor.findChunk('TrackEntry');
          entry;
@@ -1680,6 +1685,13 @@ var webm = webm || {};
         if (!trackNumber)
           continue;
         videoTrackNum = Number(decodeUint(trackNumber.cursor));
+        const nameChunk = entry.cursor.findChunk('Name');
+        const name = nameChunk ? decodeString(nameChunk.cursor) : '';
+        if (name.startsWith('StopMotionCompat/')) {
+          if (!name.startsWith('StopMotionCompat/1:') || name.length > 200)
+            throw new Error('Unsupported StopMotion export metadata.');
+          compatibility = JSON.parse(name.slice('StopMotionCompat/1:'.length));
+        }
         let video = entry.cursor.findChunk('Video');
         if (!video)
           continue;
@@ -1695,36 +1707,60 @@ var webm = webm || {};
     }
     if (w == -1 || h == -1)
       throw ('Could not decode height/width from Segment/Tracks/TrackEntry/Video/Pixel[Width|Height] section.');
-    if (sizeCB)
-      sizeCB(w, h);
-
     let segmentCursor = segment.cursor;
     let cluster;
-    let frameIdx = 0;
-    let frameTimes = [];
+    const frames = [];
     while (cluster = segmentCursor.findChunk('Cluster')) {
-      let clusterTimecode = decodeUint(cluster.cursor.findChunk('Timecode'));
+      let clusterTimecode = Number(decodeUint(cluster.cursor.findChunk('Timecode').cursor));
       let clusterCursor = cluster.cursor;
       let block;
-      while (block = clusterCursor.findChunk('SimpleBlock')) {
+      while (block = clusterCursor.findChunk()) {
+        let duration = null;
+        if (block.type === 'BlockGroup') {
+          const durationChunk = block.cursor.findChunk('BlockDuration');
+          duration = durationChunk ? Number(decodeUint(durationChunk.cursor)) : null;
+          block = block.cursor.findChunk('Block');
+        } else if (block.type !== 'SimpleBlock') continue;
+        if (!block) continue;
         let blockCursor = block.cursor;
         let trackNum = decodeLength(blockCursor);  // Track Number
         if (trackNum == videoTrackNum) {
-          frameTimes.push(decodeInt(new Cursor(blockCursor.data, blockCursor.idx, blockCursor.idx + 2)));
-          if (frameRateCB && frameTimes.length == 2)
-            frameRateCB(1000 / (frameTimes[1] - frameTimes[0]));
+          const time = clusterTimecode + decodeInt(new Cursor(blockCursor.data, blockCursor.idx, blockCursor.idx + 2));
           blockCursor.idx += 3;  // Timecode + Flags
-          let riffLength = encodeUint(blockCursor.max - blockCursor.idx + 12, 4);
-          Array.prototype.reverse.bind(riffLength)();
-          let vp8Length = encodeUint(blockCursor.max - blockCursor.idx, 4);
-          Array.prototype.reverse.bind(vp8Length)();
-          if (frameCB) {
-            let vp8Data = new Uint8Array(block.data.subarray(blockCursor.idx, blockCursor.max));
-            let vp8Blob = new Blob([riffHeader, riffLength, webpHeader, vp8Header, vp8Length, vp8Data], {type: 'image/webp'});
-            frameCB(vp8Blob, frameIdx++);
-          }
+          frames.push({time, duration, data:block.data.subarray(blockCursor.idx, blockCursor.max)});
         }
       }
+    }
+    let count = frames.length;
+    let rate = count > 1 ? 1000 / (frames[1].time - frames[0].time) : null;
+    if (compatibility) {
+      const [exposures, interval, pieces] = Array.isArray(compatibility) ? compatibility : [];
+      if (!Number.isInteger(exposures) || exposures < 1 || exposures > 24000 ||
+          !Number.isFinite(interval) || interval < 8 || interval > 1000 || pieces !== 8 ||
+          frames.length !== exposures + 7)
+        throw new Error('Invalid StopMotion export metadata.');
+      const start = Math.round((exposures - 1) * interval), end = exposures * interval;
+      const timeAt = index => index < exposures ? Math.round(index * interval) :
+        Math.round(start + (end - start) * (index - exposures + 1) / 8);
+      const last = frames[exposures - 1].data;
+      for (let i = 0; i < frames.length; i++) {
+        const frame = frames[i];
+        if (frame.time !== timeAt(i) || frame.duration !== timeAt(i + 1) - timeAt(i) ||
+            (i >= exposures && (frame.data.length !== last.length || !frame.data.every((v,j) => v === last[j]))))
+          throw new Error('StopMotion transport frames do not match their timing metadata.');
+      }
+      count = exposures;
+      rate = 1000 / interval;
+    }
+    if (sizeCB) sizeCB(w, h);
+    if (frameRateCB && rate) frameRateCB(rate);
+    for (let i = 0; i < count; i++) {
+      const data = frames[i].data;
+      const padding = data.length % 2 ? new Uint8Array([0]) : new Uint8Array(0);
+      const riffLength = encodeUint(data.length + padding.length + 12, 4).reverse();
+      const vp8Length = encodeUint(data.length, 4).reverse();
+      if (frameCB) frameCB(new Blob([riffHeader, riffLength, webpHeader, vp8Header, vp8Length, data, padding],
+        {type:'image/webp'}), i);
     }
 
     if (!hasAudio || !audioCB)

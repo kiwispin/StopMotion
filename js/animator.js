@@ -11,10 +11,9 @@ var animator = animator || {};
 (() => {
   const STATE_IDLE = 0;
   const STATE_PLAY = 1;
-  const STATE_RECORD = 2;
 
   class Animator {
-    constructor(video, snapshotCanvas, playCanvas, messageDiv) {
+    constructor(video, snapshotCanvas, playCanvas, messageDiv, retryButton) {
       this.video = video;
       this.videoStream = null;
       this.snapshotCanvas = snapshotCanvas;
@@ -27,27 +26,102 @@ var animator = animator || {};
       this.playbackSpeed = 24.0;
       this.frames = [];
       this.frameWebps = [];
-      this.streamOn = true;
+      this.holds = [];
+      this.streamOn = false;
       this.name = null;
       this.framesInFlight = 0;
+      this.loadInProgress = false;
       this.loadFinishPending = false;
-      this.audio = null;
-      this.audioRecorder = null;
-      this.audioChunks = [];
-      this.audioBlob = null;
+      this.retryButton = retryButton || null;
+      this.cameraRequestId = 0;
+      this.cameraRequestPending = false;
+      this.cameraErrorSourceId = null;
+      this.videoSourceId = null;
+      this.dimensionsLocked = false;
+      this.projectGeneration = 0;
+      this.drawGenerations = new Map();
+      this.playGeneration = 0;
+      this.captureBusy = false;
+      this.captureQueue = [];
+      this.captureActive = null;
+      this.captureDraining = false;
+      this.video.addEventListener('loadedmetadata', () => this.syncCameraDimensions());
+      this.video.addEventListener('loadeddata', () => this.syncCameraDimensions());
+      this.video.addEventListener('resize', () => this.syncCameraDimensions());
       this.setDimensions(snapshotCanvas.width, snapshotCanvas.height);
       this.zeroPlayTime = 0;
+      this.setCameraMessage('');
     }
 
     setPlaybackSpeed(speed) {
+      if (this.isPlaying()) { this.cancelProjectActivity?.(); this.endPlay(); }
       if (speed > 0)
         this.playbackSpeed = speed;
+      this.onProjectChange?.();
     }
 
-    videoCannotPlayHandler(e) {
-      console.log('navigator.mediaDevices.getUserMedia error: ', e);
-      this.messageDiv.innerText = "Cannot connect to camera.";
-      return false;
+    setCameraMessage(message, retrySourceId) {
+      this.messageDiv.innerText = message || "";
+      this.cameraErrorSourceId = message ? retrySourceId : null;
+      if (this.retryButton)
+        this.retryButton.hidden = !message;
+    }
+
+    cameraErrorMessage(error) {
+      if (!error || !error.name)
+        return "Cannot connect to camera.";
+      switch (error.name) {
+        case "NotAllowedError":
+        case "PermissionDeniedError":
+          return "Camera permission was denied. Allow access, then retry.";
+        case "NotFoundError":
+        case "DevicesNotFoundError":
+          return "No camera was found. Connect a camera, then retry.";
+        case "NotReadableError":
+        case "TrackStartError":
+          return "The camera is already in use. Close other camera apps, then retry.";
+        case "OverconstrainedError":
+          return "The selected camera does not support the requested settings.";
+        case "NotSupportedError":
+          return "This browser does not support camera capture.";
+        default:
+          return "Cannot connect to camera. Check the camera, then retry.";
+      }
+    }
+
+    videoCannotPlayHandler(error, requestId, sourceId) {
+      console.log('navigator.mediaDevices.getUserMedia error: ', error);
+      if (requestId !== this.cameraRequestId)
+        return null;
+      this.cameraRequestPending = false;
+      this.streamOn = false;
+      this.videoStream = null;
+      this.video.srcObject = null;
+      this.setCameraMessage(this.cameraErrorMessage(error), sourceId);
+      return null;
+    }
+
+    showCameraError(error, sourceId) {
+      this.setCameraMessage(this.cameraErrorMessage(error), sourceId);
+    }
+
+    stopStream(stream) {
+      if (!stream || typeof stream.getTracks !== 'function')
+        return;
+      stream.getTracks().forEach(track => {
+        if (track && typeof track.stop === 'function')
+          track.stop();
+      });
+    }
+
+    stopVideoStreams() {
+      let streams = [];
+      if (this.videoStream)
+        streams.push(this.videoStream);
+      if (this.video.srcObject && this.video.srcObject !== this.videoStream)
+        streams.push(this.video.srcObject);
+      streams.forEach(this.stopStream.bind(this));
+      this.videoStream = null;
     }
 
     setDimensions(w, h) {
@@ -57,77 +131,153 @@ var animator = animator || {};
       this.video.height = h;
       this.snapshotCanvas.width = this.w;
       this.snapshotCanvas.height = this.h;
+      this.playCanvas.width = w;
+      this.playCanvas.height = h;
+      this.video.parentElement?.style.setProperty('--stage-ratio', w / h);
+      this.refreshSummary?.();
+    }
+
+    syncCameraDimensions(notify = true) {
+      if (!this.streamOn || this.video.srcObject !== this.videoStream || this.video.readyState < 2) return;
+      const w = this.video.videoWidth, h = this.video.videoHeight;
+      const settings = this.videoStream?.getVideoTracks()[0]?.getSettings?.();
+      // Ignore obsolete metadata while a newly attached stream is still loading.
+      if (!w || !h || (settings?.width && settings.width !== w) || (settings?.height && settings.height !== h)) return;
+      if (!this.projectBusy && !this.loadInProgress && !this.dimensionsLocked && !this.frames.length &&
+          w <= 4096 && h <= 4096 && (w !== this.w || h !== this.h)) {
+        this.setDimensions(w, h);
+        if (notify) this.onProjectChange?.();
+      }
+      this.refreshSummary?.();
     }
 
     flip() {
       this._flip = !this._flip;
+      this.onProjectChange?.();
     }
 
     attachStream(sourceId) {
-      this.messageDiv.innerText = "";
+      const requestId = ++this.cameraRequestId;
+      this.cameraRequestPending = true;
+      this.videoSourceId = sourceId || null;
+      this.setCameraMessage('');
+      this.stopVideoStreams();
+      this.video.srcObject = null;
+      this.streamOn = false;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return Promise.resolve(this.videoCannotPlayHandler(
+            {name: "NotSupportedError"}, requestId, sourceId));
+      }
       let constraints = {
         audio: false,
-        frameRate: 15,
-        width: 640,
-        height: 480
+        video: {
+          width: {ideal: 1280},
+          height: {ideal: 720},
+          frameRate: {ideal: 15}
+        }
       };
-      this.videoSourceId = sourceId;
-      if (sourceId) {
-        constraints.video = {
-          optional: [{
-            sourceId: sourceId
-          }]
-        };
-      } else {
-        constraints.video = true;
-      }
+      if (sourceId)
+        constraints.video.deviceId = {exact: sourceId};
       return navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+        if (requestId !== this.cameraRequestId) {
+          this.stopStream(stream);
+          return null;
+        }
         this.video.srcObject = stream;
         this.videoStream = stream;
         this.streamOn = true;
+        this.cameraRequestPending = false;
+        this.setCameraMessage('');
         return stream;
-      }).catch(this.videoCannotPlayHandler.bind(this));
+      }).catch(error => {
+        if (requestId !== this.cameraRequestId)
+          return null;
+        return this.videoCannotPlayHandler(error, requestId, sourceId);
+      });
     }
 
     detachStream() {
-      if (!this.video.srcObject)
-        return;
+      ++this.cameraRequestId;
+      this.cameraRequestPending = false;
       this.video.pause();
-      this.video.srcObject.getVideoTracks()[0].stop();
+      this.stopVideoStreams();
       this.streamOn = false;
       this.video.srcObject = null;
+      this.setCameraMessage('');
+    }
+
+    retryCamera() {
+      return this.attachStream(this.cameraErrorSourceId || this.videoSourceId);
     }
 
     isPlaying() {
-      return !!this.playTimer;
+      return !!this.playResolve;
     }
 
     toggleVideo() {
-      if (this.video.paused) {
-        if (this.video.srcObject && this.video.srcObject.active) {
-          this.streamOn = true;
-          return this.video.play()
-              .then(() => { return true; })
-              .catch(() => { return false; });
-        } else {
-          return this.attachStream(this.videoSourceId);
-        }
-      } else {
-        this.video.pause();
+      if (this.streamOn || this.videoStream || this.video.srcObject ||
+          this.cameraRequestPending) {
         this.detachStream();
-        this.streamOn = false;
-        return new Promise((resolve, reject) => { resolve(false) });
+        return Promise.resolve(false);
       }
+      return this.attachStream(this.videoSourceId).then(stream => !!stream);
+    }
+
+    cancelDraw(context) {
+      this.drawGenerations.set(context, (this.drawGenerations.get(context) || 0) + 1);
+    }
+
+    invalidateProject() {
+      this.projectGeneration++;
+      this.cancelDraw(this.snapshotContext);
+      this.cancelDraw(this.playContext);
+      this.cancelQueuedCaptures();
+      stopFrames.clear();
     }
 
     drawFrame(frameNumber, context) {
-      context.clearRect(0, 0, this.w, this.h);
-      context.drawImage(this.frames[frameNumber], 0, 0, this.w, this.h);
+      this.cancelDraw(context);
+      const token = this.drawGenerations.get(context), frame = this.frames[frameNumber];
+      if (!frame) return Promise.resolve(false);
+      const current = () => token === this.drawGenerations.get(context);
+      return stopFrames.use(frame, image => {
+        if (!current()) return false;
+        context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+        context.drawImage(image, 0, 0, context.canvas.width, context.canvas.height);
+        return true;
+      }, current).catch(error => {
+        if (current()) document.getElementById('timelineMessage').textContent = 'Frame could not be displayed: ' + error.message;
+        return false;
+      });
     }
 
     capture() {
-      if (!this.streamOn)
-        return;
+      if (this.projectBusy || !this.streamOn || this.isPlaying() || this.loadInProgress)
+        return null;
+      let stream = this.videoStream || this.video.srcObject;
+      let videoTracks = stream && typeof stream.getVideoTracks === 'function' ?
+          stream.getVideoTracks() : [];
+      let haveCurrentData = (typeof HTMLMediaElement === 'undefined') ?
+          2 : HTMLMediaElement.HAVE_CURRENT_DATA;
+      if (!stream || stream.active === false || !videoTracks.length ||
+          videoTracks.some(track => track.readyState && track.readyState !== 'live') ||
+          this.video.readyState < haveCurrentData ||
+          !this.video.videoWidth || !this.video.videoHeight)
+        return null;
+      const settings = videoTracks[0].getSettings?.();
+      if ((settings?.width && settings.width !== this.video.videoWidth) ||
+          (settings?.height && settings.height !== this.video.videoHeight)) return null;
+      this.syncCameraDimensions(false);
+      if (this.captureQueue.length >= 8) {
+        document.getElementById('timelineMessage').textContent = 'Still saving the last few shots…';
+        return null;
+      }
+      if (this.frames.length + this.captureQueue.length >= 2000 || !stopFrames.dimensions(this.w, this.h) ||
+          stopFrames.bytes(this.frames) >= stopFrames.maxBytes ||
+          this.exposures() >= 24000) {
+        document.getElementById('timelineMessage').textContent = 'Capture limit reached: 2,000 frames, 24,000 exposures or 2 GiB compressed media. Save Project and start a new project.';
+        return null;
+      }
       let imageCanvas = document.createElement('canvas');
       imageCanvas.width = this.w;
       imageCanvas.height = this.h;
@@ -136,77 +286,155 @@ var animator = animator || {};
         context.rotate(Math.PI);
         context.translate(-this.w, -this.h);
       }
-      context.drawImage(this.video, 0, 0, this.w, this.h);
-      this.frames.push(imageCanvas);
-      let promise = new Promise(((resolve, reject) => {
-        if (self.requestIdleCallback) {
-          requestIdleCallback(() => {
-            imageCanvas.toBlob(blob => { resolve(blob) }, 'image/webp');
-          });
-        } else {
-          imageCanvas.toBlob(blob => { resolve(blob) }, 'image/webp');
+      try {
+        stopMedia.drawContained(context, this.video, this.w, this.h, true);
+      } catch (error) {
+        imageCanvas.width = imageCanvas.height = 0;
+        return null;
+      }
+      // The frame is grabbed synchronously; PNG compression runs in the background so
+      // the next shot never waits for the previous one to finish encoding.
+      const job = {canvas: imageCanvas, generation: this.projectGeneration,
+        camera: this.cameraRequestId, cancelled: false};
+      job.promise = new Promise((resolve, reject) => { job.resolve = resolve; job.reject = reject; });
+      this.captureQueue.push(job);
+      this.captureBusy = true;
+      this.timeline?.updateControls();
+      this.drainCaptures();
+      return job.promise;
+    }
+
+    cancelQueuedCaptures() {
+      for (const job of this.captureQueue) {
+        job.cancelled = true;
+        job.canvas.width = job.canvas.height = 0;
+        job.resolve(null);
+      }
+      this.captureQueue.length = 0;
+      // The active job is left to the drain loop, which resolves it, so awaiting a
+      // cancelled capture still means the pipeline has fully stopped.
+      if (this.captureActive) this.captureActive.cancelled = true;
+    }
+
+    async drainCaptures() {
+      if (this.captureDraining) return;
+      this.captureDraining = true;
+      try {
+        while (this.captureQueue.length) {
+          const job = this.captureQueue.shift();
+          this.captureActive = job;
+          let frame = null, error = null;
+          try { frame = await stopFrames.fromCanvas(job.canvas); }
+          catch (caught) { error = caught; }
+          finally { this.captureActive = null; job.canvas.width = job.canvas.height = 0; }
+          if (job.cancelled) { job.resolve(null); continue; }
+          if (error) {
+            if (job.generation === this.projectGeneration)
+              document.getElementById('timelineMessage').textContent = 'Capture failed: ' + error.message;
+            job.resolve(null); continue;
+          }
+          const stale = job.generation !== this.projectGeneration ||
+            job.camera !== this.cameraRequestId || this.projectBusy;
+          if (!frame || stale) { job.resolve(null); continue; }
+          if (stopFrames.bytes(this.frames) + frame.png.size > stopFrames.maxBytes) {
+            document.getElementById('timelineMessage').textContent = 'Capture failed: 2 GiB compressed media limit reached. No frame added.';
+            job.resolve(null); continue;
+          }
+          const before = this.timeline?.snapshot();
+          this.dimensionsLocked = true;
+          this.timeline?.live();
+          this.frames.push(frame); this.holds.push(1);
+          this.frameWebps.push(stopMedia.lazyFrame(frame));
+          if (before) this.timeline.commit(before);
+          else this.drawFrame(this.frames.length - 1, this.snapshotContext);
+          this.onProjectChange?.();
+          job.resolve(frame);
         }
-        this.snapshotContext.clearRect(0, 0, this.w, this.h);
-        this.snapshotContext.drawImage(imageCanvas, 0, 0, this.w, this.h);
-      }).bind(this));
-      this.frameWebps.push(promise);
+      } finally {
+        this.captureDraining = false;
+        this.captureBusy = false;
+        this.timeline?.updateControls();
+      }
     }
 
     undoCapture() {
+      if (this.timeline) return this.timeline.undo();
+      if (this.projectBusy || this.loadInProgress) return;
+      if (!this.frames.length)
+        return;
       this.frames.pop();
       this.frameWebps.pop();
+      this.holds.pop();
       if (this.frames.length)
         this.drawFrame(this.frames.length-1, this.snapshotContext);
       else
         this.snapshotContext.clearRect(0, 0, this.w, this.h);
+      this.onProjectChange?.();
     }
 
     frameTimeout() {
       return 1000.0 / this.playbackSpeed;
     }
 
-    startPlay(noAudio) {
-      return new Promise((resolve, reject) => {
-        if (!this.frames.length) {
+    exposures() {
+      return this.frames.reduce((sum, _, i) => sum + (this.holds[i] ?? 1), 0);
+    }
+
+    startPlay(onReady) {
+      return new Promise(resolve => {
+        if (!this.frames.length || this.captureBusy || this.projectBusy || this.loadInProgress) {
           resolve(false);
           return;
         }
         this.snapshotCanvas.style.visibility = 'hidden';
         this.video.pause();
-        this.drawFrame(0, this.playContext);
-        this.zeroPlayTime = performance.now();
-        this.playTimer = setTimeout(this.playFrame.bind(this), this.frameTimeout(), 1, resolve);
-        if (this.audio && !noAudio) {
-          this.audio.currentTime = 0;
-          this.audio.play();
-        }
+        const token = ++this.playGeneration;
+        this.playEnds = [];
+        let exposures = 0;
+        this.frames.forEach((_, i) => {
+          exposures += this.holds[i] ?? 1;
+          this.playEnds.push(exposures * this.frameTimeout());
+        });
+        this.playResolve = resolve;
+        this.drawFrame(0, this.playContext).then(drawn => {
+          if (token !== this.playGeneration) return;
+          if (!drawn) { this.endPlay(); return; }
+          this.zeroPlayTime = performance.now();
+          onReady?.();
+          this.playTimer = setTimeout(() => this.playFrame(1, token), this.playEnds[0]);
+          this.onPlaybackState?.(true);
+        });
       });
     }
 
     endPlay(cb) {
+      this.playGeneration++;
+      this.cancelDraw(this.playContext);
       if (this.isPlaying())
         clearTimeout(this.playTimer);
       this.playTimer = null;
-      if (this.audioRecorder && this.audioRecorder.state == "recording") {
-        this.audioRecorder.stop();
-      } else if (this.audio) {
-        this.audio.pause();
-      }
+      const resolve = this.playResolve;
+      this.playResolve = null;
+      this.onPlaybackState?.(false);
       this.playContext.clearRect(0, 0, this.w, this.h);
       this.snapshotCanvas.style.visibility = '';
       if (this.streamOn)
-        this.video.play();
+        this.video.play().catch(() => {});
+      this.timeline?.preview();
+      resolve?.(true);
       if (cb)
         cb();
     }
 
-    playFrame(frameNumber, cb) {
+    async playFrame(frameNumber, token) {
+      if (token !== this.playGeneration) return;
       if (frameNumber >= this.frames.length) {
-        this.playTimer = setTimeout(this.endPlay.bind(this), 1000, cb);
+        this.endPlay();
       } else {
-        this.drawFrame(frameNumber, this.playContext);
-        let timeout = this.zeroPlayTime + ((frameNumber + 1) * this.frameTimeout()) - performance.now();
-        this.playTimer = setTimeout(this.playFrame.bind(this), timeout, frameNumber + 1, cb);
+        await this.drawFrame(frameNumber, this.playContext);
+        if (token !== this.playGeneration) return;
+        let timeout = this.zeroPlayTime + this.playEnds[frameNumber] - performance.now();
+        this.playTimer = setTimeout(() => this.playFrame(frameNumber + 1, token), Math.max(0, timeout));
       }
     }
 
@@ -221,76 +449,34 @@ var animator = animator || {};
     }
 
     clear() {
+      if (this.projectBusy || this.loadInProgress) return;
+      this.invalidateProject();
+      this.cancelProjectActivity?.();
       if (this.isPlaying())
         this.endPlay();
-      if (this.audioBlob)
-        this.audioBlob = null;
-      this.setAudioSrc(null);
-      if (this.frames.length === 0)
-        return;
       this.frames = [];
       this.frameWebps = [];
       this.snapshotContext.clearRect(0, 0, this.w, this.h);
+      this.holds = [];
+      this.timeline?.reset();
+      this.dimensionsLocked = false;
+      this.syncCameraDimensions(false);
       this.playContext.clearRect(0, 0, this.w, this.h);
       this.name = null;
+      if (this.onProjectReset) this.onProjectReset();
+      else this.onProjectChange?.();
     }
 
     loadFinished() {
+      this.loadInProgress = false;
+      this.timeline?.reset();
       this.snapshotContext.clearRect(0, 0, this.w, this.h);
       if (this.frames.length) {
         this.snapshotContext.clearRect(0, 0, this.w, this.h);
-        this.snapshotContext.drawImage(this.frames[this.frames.length-1], 0, 0, this.w, this.h);
+        this.drawFrame(this.frames.length - 1, this.snapshotContext);
         this.startPlay();
       }
-    }
-
-    addFrameVP8(frameOffset, blob, idx) {
-      let blobURL = URL.createObjectURL(blob);
-      let image = new Image(this.w, this.h);
-      this.framesInFlight++;
-      image.addEventListener("error", (evt => {
-        if (evt.target.getAttribute('triedvp8l')) {
-          console.log(evt);
-          this.framesInFlight--;
-          URL.revokeObjectURL(blobURL);
-          image = null;
-          if (this.framesInFlight === 0)
-            this.loadFinished();
-        } else {
-          evt.target.setAttribute('triedvp8l', true);
-          URL.revokeObjectURL(blobURL);
-          blob = webm.vp8tovp8l(blob);
-          blobURL = URL.createObjectURL(blob);
-          evt.target.src = blobURL;
-        }
-      }).bind(this));
-      image.addEventListener("load", (evt => {
-        let newCanvas = document.createElement('canvas');
-        newCanvas.width = this.w;
-        newCanvas.height = this.h;
-        newCanvas.getContext('2d', { alpha: false }).drawImage(evt.target, 0, 0, this.w, this.h);
-        this.frames[frameOffset + idx] = newCanvas;
-        this.frameWebps[frameOffset + idx] = new Promise((resolve, reject) => {
-          resolve(blob);
-        });
-        this.framesInFlight--;
-        URL.revokeObjectURL(blobURL);
-        if (this.framesInFlight === 0)
-          this.loadFinished();
-      }).bind(this));
-      image.src = blobURL;
-    }
-
-    setAudioSrc(blob) {
-      this.audioBlob = blob;
-      if (this.audio) {
-        URL.revokeObjectURL(this.audio.src);
-        this.audio = null;
-      }
-      if (blob) {
-        this.audio = document.createElement('audio');
-        this.audio.src = URL.createObjectURL(blob);
-      }
+      this.onProjectLoaded?.();
     }
 
     save(filename) {
@@ -311,70 +497,117 @@ var animator = animator || {};
     }
 
     encode(title) {
-      if (!this.audioBlob)
-        return webm.encode(title, this.w, this.h, this.frameTimeout(), this.frameWebps, null);
-      let fr = new FileReader();
-      let an = this;
-      let promise = new Promise((resolve, reject) => {
-        fr.addEventListener("loadend", evt => {
-          webm.encode(title, an.w, an.h, an.frameTimeout(), an.frameWebps, fr.result)
-              .then(resolve);
-        });
-        fr.readAsArrayBuffer(an.audioBlob);
+      const holds = this.frames.map((_, i) => this.holds[i] ?? 1);
+      if (!stopTimeline.validHolds(holds, this.frames.length))
+        return Promise.reject(new Error('Invalid holds or exposure budget.'));
+      // Snapshot references/settings before awaiting; expand references, never canvases.
+      const generation = this.projectGeneration;
+      const check = () => {
+        if (generation !== this.projectGeneration) throw new Error('Export cancelled by project replacement.');
+      };
+      // Encode a bounded number of frames in flight so canvas WebP encoding can use
+      // multiple cores; the muxer still consumes frames strictly in order. This only
+      // changes scheduling: each frame is encoded exactly once, at the same quality.
+      const sequence = this.frames.flatMap((frame, i) => Array(holds[i]).fill(frame));
+      const limit = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4));
+      let encoding = 0, failed = null;
+      const waiting = [];
+      const acquire = () => failed ? Promise.reject(failed) : encoding < limit ?
+        (encoding++, Promise.resolve()) :
+        new Promise((resolve, reject) => waiting.push({resolve, reject}));
+      const release = () => { const next = waiting.shift(); if (next) next.resolve(); else encoding--; };
+      const fail = error => { failed = error; while (waiting.length) waiting.shift().reject(error); };
+      const frames = sequence.map(frame => {
+        let acquired = false;
+        const encoded = acquire().then(() => {
+          acquired = true;
+          check();
+          return stopMedia.encodeFrame(frame);
+        }).then(blob => { check(); return blob; })
+          .finally(() => { if (acquired) release(); })
+          .catch(error => { fail(error); throw error; });
+        encoded.catch(() => {});  // muxer may not have awaited this frame yet
+        return encoded;
       });
-      return promise;
+      const width = this.w, height = this.h, interval = this.frameTimeout();
+      return Promise.resolve().then(() => {
+        check(); return webm.encode(title, width, height, interval, frames, null);
+      }).then(blob => { check(); return blob; });
     }
 
     load(file, finishCB, frameRateCB) {
+      this.invalidateProject();
+      this.cancelProjectActivity?.();
+      this.endPlay();
       let an = this;
-      let frameOffset = this.frames.length;
+      const generation = this.projectGeneration;
+      this.loadInProgress = true;
+      this.timeline?.updateControls();
       let reader = new FileReader();
-      reader.addEventListener("loadend", evt => {
-        webm.decode(evt.target.result,
-                    an.setDimensions.bind(an),
-                    frameRateCB,
-                    an.addFrameVP8.bind(an, frameOffset),
-                    an.setAudioSrc.bind(an));
-        an.name = file.name.substring(0, file.name.length - 5);
+      let finishLoad = (() => {
+        an.loadInProgress = false;
+        an.timeline?.updateControls();
         if (finishCB)
           finishCB();
+      });
+      // Legacy WebM decoding still reads the entire file into an ArrayBuffer.
+      if (file.size > 512 * 1024 * 1024) {
+        document.getElementById('timelineMessage').textContent = 'WebM import exceeds 512 MiB.';
+        finishLoad(); return;
+      }
+      reader.addEventListener("load", async evt => {
+        try {
+          const encoded = [], frames = [];
+          let width = an.w, height = an.h, rate = an.playbackSpeed, applied = false;
+          webm.decode(evt.target.result,
+            (w, h) => { width = w; height = h; },
+            fps => { rate = fps; }, (blob, idx) => { encoded[idx] = blob; });
+          if (!stopFrames.dimensions(width, height) || encoded.length + an.frames.length > 2000)
+            throw new Error('WebM dimensions/frame count exceed project limits.');
+          if (an.frames.length && (width !== an.w || height !== an.h))
+            throw new Error('Imported video dimensions must match the existing project.');
+          let bytes = stopFrames.bytes(an.frames);
+          for (const blob of encoded) {
+            if (generation !== an.projectGeneration) return;
+            let image;
+            try { image = await createImageBitmap(blob); }
+            catch { image = await createImageBitmap(webm.vp8tovp8l(blob)); }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            try {
+              canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+              const frame = await stopFrames.fromCanvas(canvas);
+              bytes += frame.png.size;
+              if (bytes > stopFrames.maxBytes) throw new Error('2 GiB compressed media limit reached.');
+              frames.push(frame);
+            } finally { image.close(); canvas.width = canvas.height = 0; }
+          }
+          if (generation !== an.projectGeneration || !frames.length) return;
+          if (an.exposures() + frames.length > 24000) throw new Error('Exposure limit exceeded.');
+          an.dimensionsLocked = true; an.setDimensions(width, height);
+          an.frames.push(...frames); an.holds.push(...frames.map(() => 1));
+          an.frameWebps.push(...frames.map(stopMedia.lazyFrame));
+          applied = true;
+          frameRateCB?.(rate);
+          an.name = file.name.substring(0, file.name.length - 5);
+          an.loadFinished();
+        } catch (error) {
+          document.getElementById('timelineMessage').textContent = 'WebM not imported: ' + error.message;
+        } finally { finishLoad(); }
+      });
+      reader.addEventListener("error", evt => {
+        an.loadInProgress = false;
+        finishLoad();
+      });
+      reader.addEventListener("abort", evt => {
+        an.loadInProgress = false;
+        finishLoad();
       });
       reader.readAsArrayBuffer(file);
     }
 
-    recordAudio(stream) {
-      let promise = new Promise(((resolve, reject) => {
-        if (!this.frames.length) {
-          resolve(null);
-          return;
-        }
-        let state = this.audioRecorder ? this.audioRecorder.state : "inactive";
-        if (state == "recording") {
-          resolve(null);
-          return;
-        }
-        this.audioRecorder = new MediaRecorder(stream, {mimeType: "audio/webm;codecs=opus"});
-        this.audioRecorder.ondataavailable = (evt => {
-          this.audioChunks.push(evt.data);
-        }).bind(this);
-        this.audioRecorder.onstop = (evt => {
-          this.audioRecorder = null;
-          this.setAudioSrc(new Blob(this.audioChunks, {'type': 'audio/webm;codecs=opus'}));
-          this.audioChunks = [];
-          resolve(this.audioBlob);
-        }).bind(this);
-        this.startPlay(true);
-        this.audioRecorder.start();
-      }).bind(this));
-      return promise;
-    }
-
-    clearAudio() {
-      if (this.audioRecorder)
-        return;
-      this.setAudioSrc(null);
-    }
   }
+
 
   animator.Animator = Animator;
 })();
