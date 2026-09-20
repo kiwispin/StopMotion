@@ -1782,3 +1782,32 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Files: index.html, js/timeline.js, js/animator.js, js/main.js, js/project.js,
   animator.css, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
 - Status: PENDING PARENT REVIEW.
+
+### SM-087 — UI Increment 3: timeline at scale (numbers, hold badges, zoom, go-to, windowing)
+
+- Purpose: third approved increment. Make long projects manageable without turning the
+  filmstrip into a wall of thumbnails.
+- Changes:
+  - js/timeline.js: rendering reworked to framed cells (canvas + frame number + `xN`
+    hold badge) with the existing canvas-reuse map preserved. Projects over 120 frames
+    now render only the visible window (overscan 6 cells) inside an absolutely
+    positioned track of full width, re-rendering on scroll; selection is kept in the
+    window and scrolled into view. Added Zoom (48-176px via buttons and a range, applied
+    through a `--thumb-w` CSS variable) and Go to frame (1-based input + button, Enter
+    supported). updateControls now addresses cells by `data-index`. API exposes
+    `goToFrame` and `applyZoom`.
+  - index.html: zoom controls and Go to frame added to the timeline toolbar.
+  - animator.css: filmstrip track/cell, frame-number, hold-badge and zoom/go-to styling;
+    thumbnail container switched from a flex row to a positioned, scrollable track.
+- Measured (1 worker): full affected suite 56 passed / 2 failed; both failures are the
+  pre-existing ones (memory-increment thumbnail fixture race; timeline delayed-invalid
+  test-helper conflict). ui-modes (incl. the new numbers/badges/zoom/go-to case) 4/4.
+  Screenshot inspected: test-results/timeline-scale.png (112px cells, `x4` badge on frame
+  2, selection on frame 5, zoom slider and Go to frame).
+- Test contract updated: large-project 700-frame case now asserts 700 frames with a
+  windowed filmstrip (0 < visible cells <= 80) instead of 700 DOM canvases. Small
+  projects (<=120 frames) still render every cell, so existing behaviour and assertions
+  are unchanged.
+- Files: js/timeline.js, index.html, animator.css, README.md,
+  tests/e2e/ui-modes.spec.js, tests/e2e/large-project.spec.js, STOPMOTION_CHANGELOG.md.
+- Status: PENDING PARENT REVIEW.

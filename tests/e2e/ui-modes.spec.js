@@ -92,6 +92,43 @@ test('capture shows a pending badge while frames compress', async ({page}) => {
   expect(pending.frames).toBe(2);
 });
 
+test('frame numbers, hold badges, zoom and go-to-frame work', async ({page}) => {
+  test.setTimeout(30000);
+  await ready(page);
+  await page.evaluate(async () => { for (let i = 0; i < 5; i++) await main.animator.capture(); });
+
+  await page.locator('#thumbnail-container canvas').nth(1).click();
+  for (let i = 0; i < 3; i++) await page.locator('#holdIncrease').click();
+
+  expect(await page.evaluate(() => [...document.querySelectorAll('#thumbnail-container .thumb')].map(cell => ({
+    index: cell.dataset.index,
+    number: cell.querySelector('.thumb-number').textContent,
+    hold: cell.querySelector('.thumb-hold').hidden ? null : cell.querySelector('.thumb-hold').textContent
+  })))).toEqual([
+    {index: '0', number: '1', hold: null},
+    {index: '1', number: '2', hold: '\u00d74'},
+    {index: '2', number: '3', hold: null},
+    {index: '3', number: '4', hold: null},
+    {index: '4', number: '5', hold: null}
+  ]);
+
+  const before = await page.locator('#thumbnail-container canvas').first().boundingBox();
+  await page.locator('#zoomIn').click();
+  const after = await page.locator('#thumbnail-container canvas').first().boundingBox();
+  expect(after.width).toBeGreaterThan(before.width);
+  expect(await page.evaluate(() =>
+    getComputedStyle(document.getElementById('thumbnail-container')).getPropertyValue('--thumb-w').trim())).toBe('112px');
+
+  await page.locator('#goToFrame').fill('5');
+  await page.locator('#goToFrameButton').click();
+  expect(await page.evaluate(() => ({
+    status: document.getElementById('selectionStatus').textContent,
+    chip: document.getElementById('modeChip').textContent,
+    selected: main.animator.timeline.selected
+  }))).toEqual({status: 'Frame 5', chip: 'Reviewing frame 5', selected: 4});
+  await page.screenshot({path: 'test-results/timeline-scale.png', fullPage: true});
+});
+
 test('save status exposes a state for the indicator dot', async ({page}) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.enumerateDevices = async () => [];

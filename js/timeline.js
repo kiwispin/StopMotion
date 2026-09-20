@@ -5,6 +5,11 @@ window.stopTimeline = (() => {
   const historyLimit = 50;
   const maxHold = 120;
   const maxExposures = 24000;
+  const gap = 10;
+  const virtualizationThreshold = 120;
+  const overscan = 6;
+  const minThumb = 48;
+  const maxThumb = 176;
 
   function validHolds(holds, count) {
     return Array.isArray(holds) && holds.length === count &&
@@ -14,13 +19,17 @@ window.stopTimeline = (() => {
 
   function connect(an) {
     let selected = -1;
+    let thumbWidth = 96;
     const past = [], future = [];
     const strip = document.getElementById('thumbnail-container');
     const nodeFrames = new WeakMap();
+    const wrapFor = new WeakMap();
     const control = id => document.getElementById(id);
     const blocked = () => an.projectBusy || an.loadInProgress || an.captureBusy;
     const snapshot = () => ({frames: an.frames.slice(), webps: an.frameWebps.slice(),
       holds: an.holds.slice(), selected});
+    const stride = () => thumbWidth + gap;
+    const cellHeight = () => Math.round(thumbWidth * 0.75) + 20;
 
     function stop() {
       an.cancelProjectActivity?.();
@@ -49,6 +58,7 @@ window.stopTimeline = (() => {
       control('liveButton').setAttribute('aria-pressed', selected < 0);
       control('selectionStatus').textContent = selected < 0 ? 'Live camera' : `Frame ${selected + 1}`;
       control('frameHold').value = selected < 0 ? 1 : an.holds[selected];
+      control('goToFrame').max = Math.max(1, an.frames.length);
       const reviewing = selected >= 0;
       const chip = control('modeChip');
       if (chip) {
@@ -71,47 +81,104 @@ window.stopTimeline = (() => {
         control('panelMoveRight').disabled = locked || selected >= an.frames.length - 1;
         control('panelBackToLive').disabled = locked;
       }
-      [...strip.children].forEach((node, index) => {
-        node.setAttribute('aria-pressed', index === selected);
-        node.tabIndex = index === (selected < 0 ? 0 : selected) ? 0 : -1;
-        node.setAttribute('aria-disabled', locked);
-      });
+      for (const cell of strip.querySelectorAll('.thumb')) {
+        const index = Number(cell.dataset.index);
+        const canvas = cell.querySelector('canvas');
+        canvas.setAttribute('aria-pressed', String(index === selected));
+        canvas.tabIndex = index === (selected < 0 ? 0 : selected) ? 0 : -1;
+        canvas.setAttribute('aria-disabled', String(locked));
+        cell.classList.toggle('selected', index === selected);
+      }
+    }
+    function cellCanvas(index) {
+      return strip.querySelector(`.thumb[data-index="${index}"] canvas`);
+    }
+    function ensureScroll(index) {
+      const s = stride();
+      const left = index * s, right = left + thumbWidth;
+      const viewLeft = strip.scrollLeft, viewRight = viewLeft + strip.clientWidth;
+      if (left < viewLeft) strip.scrollLeft = Math.max(0, left - s * overscan);
+      else if (right > viewRight) strip.scrollLeft = right - strip.clientWidth + s * overscan;
     }
     function select(index, focus = false) {
       if (blocked()) return;
       stop();
       selected = Math.max(-1, Math.min(index, an.frames.length - 1));
-      updateControls(); preview();
-      if (focus && selected >= 0) strip.children[selected]?.focus();
+      if (an.frames.length > virtualizationThreshold && selected >= 0) {
+        ensureScroll(selected);
+        render();
+      } else {
+        updateControls(); preview();
+      }
+      if (focus && selected >= 0) cellCanvas(selected)?.focus();
     }
     function render() {
       selected = Math.min(selected, an.frames.length - 1);
-      const available = new Map();
-      for (const node of strip.children) {
-        const frame = nodeFrames.get(node);
-        if (!available.has(frame)) available.set(frame, []);
-        available.get(frame).push(node);
-      }
-      strip.replaceChildren(...an.frames.map((frame, index) => {
-        let canvas = available.get(frame)?.shift();
-        if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.width = 96; canvas.height = 72;
-          canvas.getContext('2d').drawImage(frame.thumbnail, 0, 0);
-          nodeFrames.set(canvas, frame);
+      const count = an.frames.length;
+      if (!count) {
+        strip.replaceChildren();
+      } else {
+        const s = stride();
+        let start = 0, end = count;
+        if (count > virtualizationThreshold) {
+          const viewport = strip.clientWidth || 800;
+          const visible = Math.ceil(viewport / s) + overscan * 2;
+          start = Math.max(0, Math.floor(strip.scrollLeft / s) - overscan);
+          end = Math.min(count, Math.ceil((strip.scrollLeft + viewport) / s) + overscan);
+          if (selected >= 0 && (selected < start || selected >= end)) {
+            start = Math.max(0, Math.min(selected - overscan, count - visible));
+            end = Math.min(count, start + visible);
+          }
         }
-        canvas.setAttribute('role', 'button');
-        canvas.setAttribute('aria-label', `Frame ${index + 1}, hold ${an.holds[index]} exposures`);
-        canvas.onclick = () => select(index);
-        canvas.onkeydown = event => {
-          const keys = {ArrowLeft: index - 1, ArrowRight: index + 1,
-            Home: 0, End: an.frames.length - 1, Enter: index, ' ': index};
-          if (!(event.key in keys)) return;
-          event.preventDefault(); event.stopPropagation();
-          select(Math.max(0, keys[event.key]), true);
-        };
-        return canvas;
-      }));
+        const available = new Map();
+        for (const node of strip.querySelectorAll('canvas')) {
+          const frame = nodeFrames.get(node);
+          if (!available.has(frame)) available.set(frame, []);
+          available.get(frame).push(node);
+        }
+        const track = document.createElement('div');
+        track.className = 'thumb-track';
+        track.style.width = (count * s - gap) + 'px';
+        track.style.height = cellHeight() + 'px';
+        for (let index = start; index < end; index++) {
+          const frame = an.frames[index];
+          let canvas = available.get(frame)?.shift();
+          if (!canvas) {
+            canvas = document.createElement('canvas');
+            canvas.width = 96; canvas.height = 72;
+            canvas.getContext('2d').drawImage(frame.thumbnail, 0, 0);
+            nodeFrames.set(canvas, frame);
+          }
+          let wrap = wrapFor.get(canvas);
+          if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.className = 'thumb';
+            const number = document.createElement('span'); number.className = 'thumb-number';
+            const badge = document.createElement('span'); badge.className = 'thumb-hold';
+            wrap.append(canvas, number, badge);
+            wrapFor.set(canvas, wrap);
+          }
+          wrap.dataset.index = String(index);
+          wrap.style.left = (index * s) + 'px';
+          wrap.querySelector('.thumb-number').textContent = String(index + 1);
+          const hold = an.holds[index] ?? 1;
+          const badge = wrap.querySelector('.thumb-hold');
+          badge.textContent = hold > 1 ? '×' + hold : '';
+          badge.hidden = hold <= 1;
+          canvas.setAttribute('role', 'button');
+          canvas.setAttribute('aria-label', `Frame ${index + 1}, hold ${hold} exposures`);
+          canvas.onclick = () => select(index);
+          canvas.onkeydown = event => {
+            const keys = {ArrowLeft: index - 1, ArrowRight: index + 1,
+              Home: 0, End: count - 1, Enter: index, ' ': index};
+            if (!(event.key in keys)) return;
+            event.preventDefault(); event.stopPropagation();
+            select(Math.max(0, keys[event.key]), true);
+          };
+          track.appendChild(wrap);
+        }
+        strip.replaceChildren(track);
+      }
       an.cancelDraw(an.snapshotContext);
       an.snapshotContext.clearRect(0, 0, an.w, an.h);
       if (an.frames.length) an.drawFrame(an.frames.length - 1, an.snapshotContext);
@@ -151,8 +218,6 @@ window.stopTimeline = (() => {
       an.holds = an.frames.map((_, i) => an.holds[i] ?? 1);
       render();
     }
-    control('liveButton').onclick = () => select(-1);
-    control('redoButton').onclick = () => travel(future, past);
     function duplicate() {
       if (blocked() || selected < 0) return;
       if (stopFrames.bytes(an.frames) + an.frames[selected].png.size > stopFrames.maxBytes) {
@@ -184,6 +249,21 @@ window.stopTimeline = (() => {
       const clamped = Math.max(1, Math.min(120, Math.round(Number(value) || 1)));
       if (clamped !== an.holds[selected]) mutate(() => { an.holds[selected] = clamped; });
     }
+    function goToFrame(value) {
+      if (!an.frames.length) return;
+      const index = Math.max(0, Math.min(an.frames.length - 1, Math.round(Number(value) || 1) - 1));
+      select(index, true);
+    }
+    function applyZoom(width) {
+      thumbWidth = Math.max(minThumb, Math.min(maxThumb, Math.round(width / 8) * 8));
+      strip.style.setProperty('--thumb-w', thumbWidth + 'px');
+      const range = control('zoomRange');
+      if (range && Number(range.value) !== thumbWidth) range.value = String(thumbWidth);
+      render();
+    }
+
+    control('liveButton').onclick = () => select(-1);
+    control('redoButton').onclick = () => travel(future, past);
     control('duplicateFrame').onclick = duplicate;
     control('deleteFrame').onclick = remove;
     control('moveLeft').onclick = () => move(-1);
@@ -196,11 +276,23 @@ window.stopTimeline = (() => {
     control('panelBackToLive').onclick = () => select(-1);
     control('holdDecrease').onclick = () => setHold((an.holds[selected] ?? 1) - 1);
     control('holdIncrease').onclick = () => setHold((an.holds[selected] ?? 1) + 1);
+    control('zoomOut').onclick = () => applyZoom(thumbWidth - 16);
+    control('zoomIn').onclick = () => applyZoom(thumbWidth + 16);
+    control('zoomRange').addEventListener('input', event => applyZoom(Number(event.target.value)));
+    control('goToFrameButton').onclick = () => goToFrame(control('goToFrame').value);
+    control('goToFrame').addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); goToFrame(control('goToFrame').value); }
+    });
+    strip.addEventListener('scroll', () => {
+      if (an.frames.length > virtualizationThreshold) render();
+    }, {passive: true});
+
     const api = {snapshot, commit, reset, render, preview, updateControls,
       undo: () => travel(past, future), live: () => { selected = -1; },
-      duplicate, remove, move, setHold,
+      duplicate, remove, move, setHold, goToFrame, applyZoom,
       get selected() { return selected; }};
     an.timeline = api;
+    applyZoom(Number(control('zoomRange').value) || thumbWidth);
     reset();
     return api;
   }

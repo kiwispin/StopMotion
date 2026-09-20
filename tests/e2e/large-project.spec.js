@@ -108,10 +108,15 @@ test('700 distinct textured 720p captures recover in order and export with bound
     for (const frame of main.animator.frames)
       hashes.push([...new Uint8Array(await crypto.subtle.digest('SHA-256',await frame.png.arrayBuffer()))].join(','));
     await main.animator.drawFrame(699,main.animator.playContext);
-    return {hashes,fps:main.animator.playbackSpeed,thumbs:document.querySelectorAll('#thumbnail-container canvas').length,
+    return {hashes,fps:main.animator.playbackSpeed,frames:main.animator.frames.length,
+      visibleThumbs:document.querySelectorAll('#thumbnail-container canvas').length,
       tailRGB:[...main.animator.playContext.getImageData(970,370,1,1).data].slice(0,3)};
   });
-  expect(restored.hashes).toEqual(captured.hashes); expect(restored.fps).toBe(24); expect(restored.thumbs).toBe(700);
+  expect(restored.hashes).toEqual(captured.hashes); expect(restored.fps).toBe(24);
+  expect(restored.frames).toBe(700);
+  // The filmstrip virtualizes large projects: only a window of cells is rendered.
+  expect(restored.visibleThumbs).toBeGreaterThan(0);
+  expect(restored.visibleThumbs).toBeLessThanOrEqual(80);
   Object.assign(metrics,{phase:'recovered',recoveryMs,orderHashesEqual:true});
   await writeFile(testInfo.outputPath('RESULT.json'),JSON.stringify(metrics,null,2));
   console.log('LARGE recovered 700');

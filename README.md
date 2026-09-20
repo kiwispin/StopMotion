@@ -31,7 +31,10 @@ Run the Chromium simulated-camera tests with `npm run test:e2e`.
   selects without capturing. Live returns to the camera/onion view. Duplicate, Delete,
   Move left/right and Hold edit the selected frame. Hold is an integer exposure count
   (1–120); duration is total exposures divided by FPS. The bar below the camera shows
-  elapsed animation time, not position in the equal-width thumbnail strip.
+  elapsed animation time, not position in the equal-width thumbnail strip. Each frame
+  cell shows its number and an xN badge when Hold is greater than one. Zoom and Go to
+  frame navigate long projects; projects over 120 frames render only the visible window
+  of thumbnails and load the rest as you scroll.
 - Undo/Redo cover capture and timeline edits, retaining at most 50 edits in memory.
   History/duplicates share immutable PNG frame records and encoding references rather
   than cloning pixels. Fresh edits discard redo. Clear, Open, recovery/reload and completed

@@ -61,6 +61,16 @@
       <button id="duplicateFrame">Duplicate</button><button id="deleteFrame">Delete</button>
       <button id="moveLeft">Move left</button><button id="moveRight">Move right</button>
       <label for="frameHold">Hold</label><input id="frameHold" type="number" min="1" max="120" step="1" value="1" aria-label="Hold exposures">
+      <div class="timeline-zoom" aria-label="Timeline zoom">
+        <button id="zoomOut" aria-label="Zoom out">&minus;</button>
+        <input id="zoomRange" type="range" min="48" max="176" step="8" value="96" aria-label="Thumbnail size">
+        <button id="zoomIn" aria-label="Zoom in">+</button>
+      </div>
+      <span class="timeline-goto">
+        <label for="goToFrame">Go to frame</label>
+        <input id="goToFrame" type="number" min="1" step="1" value="1" aria-label="Go to frame number">
+        <button id="goToFrameButton">Go</button>
+      </span>
       <span id="timelineMessage" role="status"></span>
     </div>
     <div id="thumbnail-container" tabindex="0" aria-label="Frame strip"></div><p class="empty-hint">Your story starts with one frame. Set the scene, then press Capture.</p></section>
