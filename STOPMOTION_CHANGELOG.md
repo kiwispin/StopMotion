@@ -1698,3 +1698,23 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   tests/e2e/capture-cost.spec.js (SM-082 measurement, test-only), README.md.
 - Status: PENDING PARENT REVIEW. Audio-free app + non-blocking capture uncommitted;
   probe for the iPad export path still pending.
+
+### SM-084 — Published to the owner's GitHub and GitHub Pages
+
+- Target: the owner's own repository `kiwispin/StopMotion` (renamed display from the
+  existing `kiwispin/stopmotion`, which held a June-2024 earlier version of this same
+  app). The upstream `szager/stop-motion` remote was demoted to `upstream` and was NOT
+  pushed to; `origin` now points to `kiwispin/StopMotion`.
+- History: full development history retained (upstream baseline 6eae625 plus rebuild
+  commit 0ef337e). `main` was force-replaced over the old 4-commit history per owner
+  decision.
+- GitHub Pages enabled from `main` root over HTTPS; build for 0ef337e reported `built`.
+  App: https://kiwispin.github.io/StopMotion/
+  Probe: https://kiwispin.github.io/StopMotion/tests/diagnostics/device-probe.html
+- Verified live: served js/animator.js contains the non-blocking capture (drainCaptures)
+  and concurrency export (navigator.hardwareConcurrency), and contains no recordAudio;
+  index.html has no audio controls. HTTPS satisfies the secure-context requirement for
+  camera and the probe on iPad/Chromebook.
+- Unchanged limitation: the export encoder still uses canvas WebP, which WebKit lacks, so
+  iPad export remains blocked until the probe results drive the MP4/H.264 work.
+- Status: RECORDED. Deployment only; no further product code change.
