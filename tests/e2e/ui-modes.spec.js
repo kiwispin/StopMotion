@@ -148,13 +148,14 @@ test('camera stays off until the student starts it', async ({page}) => {
   expect(await page.evaluate(() => window.__gumRequests)).toBe(0);
   expect(await page.evaluate(() => document.getElementById('video-message').textContent)).toContain('Camera is off');
   expect(await page.evaluate(() => main.animator.streamOn)).toBe(false);
-  await expect(page.locator('#captureButton')).toBeDisabled();
+  expect(await page.evaluate(() => main.animator.capture())).toBe(null);
+  await expect(page.locator('#modeChip')).toHaveText('Camera off');
   await expect(page.locator('#toggleButton')).toHaveText('Turn camera on');
 
   await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
     const stream = canvas.captureStream(30);
-    navigator.mediaDevices.getUserMedia = async () => stream;
+    navigator.mediaDevices.getUserMedia = async () => { window.__gumRequests++; return stream; };
   });
   await page.locator('#toggleButton').click();
   await expect.poll(() => page.evaluate(() => ({streamOn: main.animator.streamOn, gum: window.__gumRequests})))

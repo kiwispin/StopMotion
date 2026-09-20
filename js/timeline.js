@@ -46,7 +46,7 @@ window.stopTimeline = (() => {
       const locked = blocked();
       // Capture stays available while earlier shots finish compressing in the
       // background; other controls wait until the queue drains.
-      control('captureButton').disabled = an.projectBusy || an.loadInProgress || !an.streamOn;
+      control('captureButton').disabled = an.projectBusy || an.loadInProgress;
       control('playButton').disabled = locked;
       control('undoButton').disabled = locked || !past.length;
       control('redoButton').disabled = locked || !future.length;

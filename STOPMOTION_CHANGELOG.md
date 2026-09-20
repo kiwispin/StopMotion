@@ -2045,3 +2045,21 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   keep auto-start through the fixtures test hook.
 - Status: PENDING REVIEW. Owner requested the push immediately; the full affected suite
   was aborted before completing and still needs a clean run.
+
+### SM-095 - Camera-off follow-up: keep the UI in sync and tests green
+
+- Problem found by the full run: with camera-off as the default, the UI was not refreshed
+  when the stream attached, so Capture stayed disabled and the camera-dependent specs
+  timed out (40 failed / 20 passed). Gating Capture on `streamOn` was also too broad: some
+  specs attach a fixture stream directly (bypassing the app), so the button stayed disabled.
+- Fix: `Animator.attachStream`/`detachStream` now call `refreshSummary` and
+  `timeline.updateControls`, so the chip, prompt and controls reflect camera state.
+  Capture is no longer disabled by `streamOn`; `capture()` already refuses without a live
+  stream, and the off state is shown by the "Camera is off" prompt and the "Camera off"
+  stage chip. The focused camera test now asserts `capture() === null` and the chip text
+  rather than a disabled button.
+- Files: js/animator.js, js/timeline.js, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Measured (1 worker): full affected suite 58 passed / 2 failed; both failures are the
+  pre-existing memory-increment thumbnail fixture race and the timeline delayed-invalid
+  test-helper conflict. No regression from the camera privacy change.
+- Status: PENDING REVIEW.

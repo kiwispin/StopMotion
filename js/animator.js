@@ -188,6 +188,8 @@ var animator = animator || {};
         this.streamOn = true;
         this.cameraRequestPending = false;
         this.setCameraMessage('');
+        this.refreshSummary?.();
+        this.timeline?.updateControls?.();
         return stream;
       }).catch(error => {
         if (requestId !== this.cameraRequestId)
@@ -204,6 +206,8 @@ var animator = animator || {};
       this.streamOn = false;
       this.video.srcObject = null;
       this.setCameraMessage('');
+      this.refreshSummary?.();
+      this.timeline?.updateControls?.();
     }
 
     retryCamera() {
