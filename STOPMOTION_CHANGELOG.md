@@ -1718,3 +1718,34 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Unchanged limitation: the export encoder still uses canvas WebP, which WebKit lacks, so
   iPad export remains blocked until the probe results drive the MP4/H.264 work.
 - Status: RECORDED. Deployment only; no further product code change.
+
+### SM-085 — UI Increment 1: design tokens and workspace shell (visual only)
+
+- Purpose: first approved increment of the UI direction in DESIGN_AUDIT.md. Styling and
+  layout shell only; behaviour, element IDs and the layout mechanics are unchanged.
+- Decisions applied (approved defaults): accent teal `#2dd4bf` with `#14b8a6` hover and
+  dark ink `#04211d` on accent; green `#10b981` reserved for success; warning `#f59e0b`,
+  danger `#ef4444`. Landscape-first with the portrait stacked layout retained.
+- Changes:
+  - animator.css: added a token layer (shared family base colours, semantic
+    success/warning/danger, type scale, radii 8/12/16, spacing 4-32, focus ring, 44px
+    touch targets, elevation shadow, prefers-reduced-motion) and restyled buttons,
+    panels, transport, filmstrip, dialogs and inputs to it. Stage max width increased
+    580px -> 820px (still height-aware via the container query). Capture is the single
+    filled accent primary control ("Capture frame", 52px). Backward-compatible aliases
+    --panel/--raised/--muted retained.
+  - index.html: save status moved inline into the top bar (single row) replacing the
+    separate status strip; Capture label updated. All IDs preserved
+    (#project-status, #project-controls, #captureButton, ...).
+- Measured (1 worker): ui.spec + quality.spec 15 passed / 0 failed; responsive studio
+  at 1440/1024/768/390 has no horizontal overflow, desktop document fits the viewport
+  including the complete first thumbnail row, and the 1024 HD stage stays 16:9. Full
+  affected behaviour suite 37 passed / 2 failed; both failures are the pre-existing
+  ones (memory-increment thumbnail fixture race; timeline delayed-invalid test-helper
+  conflict), so no regression from the visual change.
+- Screenshots inspected: test-results/studio-1440.png and studio-390.png.
+- Deferred to later increments (not started): contextual Live/Review panel and mode
+  chip, pending-capture state, save-state set, timeline zoom/go-to/virtualization and
+  the export flow. No behaviour was changed in this increment.
+- Files: animator.css, index.html, STOPMOTION_CHANGELOG.md.
+- Status: PENDING PARENT REVIEW.

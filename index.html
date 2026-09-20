@@ -9,12 +9,12 @@
 </head><body>
 <header class="topbar">
   <div class="brand"><span class="brand-icon" aria-hidden="true">▣</span><div><h1>StopMotion</h1><small>Frame by frame. Bring it to life.</small></div></div>
+  <div class="statusbar"><span class="status-dot" aria-hidden="true"></span><p id="project-status" role="status" aria-live="polite"></p></div>
   <nav id="project-controls" aria-label="Project">
     <button id="openProject">Open Project</button><button id="saveProject">Save Project</button><button id="saveButton">Export Video</button><button id="retrySave" hidden>Retry autosave</button>
     <input id="projectFile" type="file" accept=".stopmotion,application/json" hidden>
   </nav>
 </header>
-<div class="statusbar"><span class="status-dot" aria-hidden="true"></span><p id="project-status" role="status" aria-live="polite"></p></div>
 <main id="top-container">
   <section id="video-column" aria-label="Camera and playback">
     <div class="panel-heading"><h2>Studio</h2><output id="resolutionStatus" class="hint">Waiting for camera</output></div>
@@ -29,7 +29,7 @@
       </div>
     </div></div>
     <div id="progress-container" role="progressbar" aria-label="Elapsed animation progress" title="Elapsed animation time" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-marker"></div></div>
-    <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="captureButton" class="primary"><span aria-hidden="true">●</span> Capture <kbd>Space</kbd></button><button id="undoButton">↶ Undo</button><button id="redoButton">↷ Redo</button></div>
+    <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="captureButton" class="primary"><span aria-hidden="true">●</span> Capture frame <kbd>Space</kbd></button><button id="undoButton">↶ Undo</button><button id="redoButton">↷ Redo</button></div>
   </section>
   <aside id="control-column" aria-label="Camera and animation settings"><div id="button-container">
     <section class="settings-group"><h2>Camera</h2><div id="camera-settings"></div><div class="button-pair"><button id="toggleButton">Camera On/Off</button><button id="flipButton" aria-pressed="false">Flip 180°</button></div></section>
