@@ -144,6 +144,10 @@ window.stopProject = (() => {
       status.textContent = persistenceError && persistenceError !== message ?
         message + ' ' + persistenceError : message;
       retry.hidden = !persistenceError || recoveryProtected;
+      const state = (error || persistenceError) ? 'error'
+        : /^Saving/.test(message) ? 'saving'
+        : /^Saved/.test(message) ? 'saved' : 'idle';
+      if (status.parentElement) status.parentElement.dataset.state = state;
     }
     function refresh() {
       an.refreshSummary?.();

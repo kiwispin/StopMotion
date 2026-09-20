@@ -37,6 +37,17 @@ window.addEventListener('load', evt => {
     }
     document.getElementById('resolutionStatus').textContent = `Project ${an.w}×${an.h} · Camera ${actual}`;
     document.getElementById('captureLimit').textContent = 'Up to 2,000 frames / 2 GiB compressed media. Decoded cache: up to 8 frames / 16 MiPixels. Storage quota varies; download backups.';
+    const pending = an.pendingCaptures ? an.pendingCaptures() : 0;
+    document.getElementById('capturePending').textContent = pending ? 'Saving ' + pending + '…' : '';
+  };
+  let captureFlashTimer = null;
+  an.onCapture = () => {
+    const stage = document.getElementById('video-container');
+    stage.classList.remove('capture-flash');
+    void stage.offsetWidth;
+    stage.classList.add('capture-flash');
+    clearTimeout(captureFlashTimer);
+    captureFlashTimer = setTimeout(() => stage.classList.remove('capture-flash'), 200);
   };
   document.getElementById('onionOpacity').addEventListener('input', event => {
     if (an.projectBusy || an.loadInProgress) return;

@@ -301,6 +301,8 @@ var animator = animator || {};
       this.captureBusy = true;
       this.timeline?.updateControls();
       this.drainCaptures();
+      this.onCapture?.();
+      this.refreshSummary?.();
       return job.promise;
     }
 
@@ -354,7 +356,12 @@ var animator = animator || {};
         this.captureDraining = false;
         this.captureBusy = false;
         this.timeline?.updateControls();
+        this.refreshSummary?.();
       }
+    }
+
+    pendingCaptures() {
+      return this.captureQueue.length + (this.captureActive ? 1 : 0);
     }
 
     undoCapture() {

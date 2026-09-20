@@ -505,6 +505,87 @@ dialog input {
   gap: 10px;
 }
 
+/* Increment 2: mode chip, pending badge, contextual panel */
+.panel-heading-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pending-badge {
+  color: var(--warning);
+  font-size: 12px;
+}
+.pending-badge:empty {
+  display: none;
+}
+.mode-chip {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  background: #0b0b0be0;
+  border: 1px solid var(--border2);
+  color: var(--text);
+}
+.mode-chip.live {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.mode-chip.review {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+#video-container.capture-flash {
+  animation: capture-flash 200ms ease-out;
+}
+@keyframes capture-flash {
+  from {
+    box-shadow: 0 0 0 4px var(--accent);
+  }
+  to {
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+#selected-frame-panel .field-heading {
+  font-weight: 600;
+  color: var(--text);
+}
+.hold-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hold-stepper button {
+  min-width: 44px;
+  min-height: 40px;
+  font-size: 18px;
+  line-height: 1;
+}
+.hold-stepper output {
+  flex: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 600;
+}
+.statusbar[data-state="saved"] .status-dot {
+  background: var(--success);
+}
+.statusbar[data-state="saving"] .status-dot {
+  background: var(--warning);
+}
+.statusbar[data-state="error"] .status-dot {
+  background: var(--danger);
+}
+
 /* Touch targets */
 @media (pointer: coarse) {
   button,

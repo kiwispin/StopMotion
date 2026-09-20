@@ -19,6 +19,7 @@
   <section id="video-column" aria-label="Camera and playback">
     <div class="panel-heading"><h2>Studio</h2><output id="resolutionStatus" class="hint">Waiting for camera</output></div>
     <div class="stage-surround"><div id="video-container">
+      <div id="modeChip" class="mode-chip live" aria-live="polite">Live camera</div>
       <video id="video" width="640" height="480" autoplay muted playsinline aria-label="Live camera preview"></video>
       <canvas id="snapshot-canvas" width="640" height="480" aria-label="Previous frame overlay"></canvas>
       <canvas id="play-canvas" width="640" height="480" aria-label="Animation playback"></canvas>
@@ -31,7 +32,21 @@
     <div id="progress-container" role="progressbar" aria-label="Elapsed animation progress" title="Elapsed animation time" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-marker"></div></div>
     <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="captureButton" class="primary"><span aria-hidden="true">●</span> Capture frame <kbd>Space</kbd></button><button id="undoButton">↶ Undo</button><button id="redoButton">↷ Redo</button></div>
   </section>
-  <aside id="control-column" aria-label="Camera and animation settings"><div id="button-container">
+  <aside id="control-column" aria-label="Camera and animation settings">
+    <section id="selected-frame-panel" class="settings-group" hidden>
+      <h2>Selected frame</h2>
+      <div class="field-heading"><output id="selectedFrameLabel">Frame 1</output><output id="selectedHoldLabel">1 exposure</output></div>
+      <div class="hold-stepper" role="group" aria-label="Hold exposures">
+        <button id="holdDecrease" aria-label="Decrease hold">&minus;</button>
+        <output id="holdValue">1</output>
+        <button id="holdIncrease" aria-label="Increase hold">+</button>
+      </div>
+      <p class="hint">Hold extends this pose. Duplicate adds a new editable frame.</p>
+      <div class="button-pair"><button id="panelDuplicate">Duplicate</button><button id="panelDelete" class="danger">Delete</button></div>
+      <div class="button-pair"><button id="panelMoveLeft">Move left</button><button id="panelMoveRight">Move right</button></div>
+      <button id="panelBackToLive">Back to live camera</button>
+    </section>
+    <div id="button-container">
     <section class="settings-group"><h2>Camera</h2><div id="camera-settings"></div><div class="button-pair"><button id="toggleButton">Camera On/Off</button><button id="flipButton" aria-pressed="false">Flip 180°</button></div></section>
     <section class="settings-group"><h2>Frame guides</h2><div class="field-heading"><label for="onionOpacity">Onion skin</label><output id="onionValue" for="onionOpacity">50%</output></div><input id="onionOpacity" type="range" min="0" max="100" value="50"><p class="hint">Blend your last frame over the camera to line up the next move.</p><button id="clockButton" aria-pressed="false">Show clock</button></section>
     <section class="settings-group"><h2>Playback</h2><div id="speed-container"><div class="field-heading"><label for="playbackSpeed">Frame rate</label><span><output id="fps" for="playbackSpeed">7.0</output> FPS</span></div><input id="playbackSpeed" type="range" min="2" max="12" step="0.5" value="7"></div></section>
@@ -40,7 +55,7 @@
       <button id="loadButton">Import WebM</button><button id="clearButton" class="danger">New / Clear project</button>
     </section>
   </div></aside>
-  <section class="filmstrip" aria-label="Captured frames"><div class="panel-heading"><h2>Frames <span id="frame-count">0</span></h2><output id="duration">0.00 s</output></div>
+  <section class="filmstrip" aria-label="Captured frames"><div class="panel-heading"><h2>Frames <span id="frame-count">0</span></h2><div class="panel-heading-right"><output id="capturePending" class="pending-badge" aria-live="polite"></output><output id="duration">0.00 s</output></div></div>
     <div class="timeline-tools" aria-label="Timeline editing">
       <button id="liveButton" aria-pressed="true">Live</button><output id="selectionStatus">Live camera</output>
       <button id="duplicateFrame">Duplicate</button><button id="deleteFrame">Delete</button>

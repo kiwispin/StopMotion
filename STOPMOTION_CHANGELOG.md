@@ -1749,3 +1749,36 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   the export flow. No behaviour was changed in this increment.
 - Files: animator.css, index.html, STOPMOTION_CHANGELOG.md.
 - Status: PENDING PARENT REVIEW.
+
+### SM-086 — UI Increment 2: modes, contextual panel, pending capture, save state
+
+- Purpose: second approved increment. Behaviour added on top of the Increment 1 shell;
+  all existing element IDs and asserted status wording preserved.
+- Changes:
+  - index.html: stage mode chip (`#modeChip`); pending badge (`#capturePending`) in the
+    filmstrip header; contextual `#selected-frame-panel` with a Hold stepper, Duplicate,
+    Delete, Move left/right and Back to live camera.
+  - js/timeline.js: updateControls now drives the mode chip ("Live camera" / "Reviewing
+    frame N") and the contextual panel visibility, labels, hold value and disabled
+    states; duplicate/delete/move/hold handlers refactored into functions and exposed on
+    the timeline API; panel and stepper controls wired to those functions.
+  - js/animator.js: added `pendingCaptures()` and `onCapture`/`refreshSummary` hooks
+    called when a shot is queued and when the queue drains.
+  - js/main.js: refreshSummary shows "Saving N…" while frames compress; onCapture fires a
+    200ms stage border pulse (reduced-motion aware via CSS).
+  - js/project.js: report() sets a `data-state` (saving/saved/error/idle) on the status
+    bar; animator.css colours the status dot accordingly.
+- Measured (1 worker): new tests/e2e/ui-modes.spec.js 3 passed / 0 failed (mode chip and
+  contextual panel incl. hold edit, duplicate, delete, back-to-live; pending badge shows
+  "Saving 2…" then clears with two frames committed; save status reaches `saved`).
+  ui + timeline + project + capture-pipeline 30 passed / 1 failed; the single failure is
+  the pre-existing timeline delayed-invalid test-helper conflict. No regressions.
+  Screenshot inspected: test-results/review-mode.png (amber review chip + selected-frame
+  panel).
+- Deliberate limit: exact "Backup downloaded" wording is deferred because ~20 assertions
+  match `#project-status` text exactly; the status dot now conveys saved/saving/error
+  instead. Placeholder thumbnails for pending captures are also deferred; the honest
+  "Saving N…" badge and stage pulse stand in for now.
+- Files: index.html, js/timeline.js, js/animator.js, js/main.js, js/project.js,
+  animator.css, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Status: PENDING PARENT REVIEW.

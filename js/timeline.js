@@ -49,6 +49,28 @@ window.stopTimeline = (() => {
       control('liveButton').setAttribute('aria-pressed', selected < 0);
       control('selectionStatus').textContent = selected < 0 ? 'Live camera' : `Frame ${selected + 1}`;
       control('frameHold').value = selected < 0 ? 1 : an.holds[selected];
+      const reviewing = selected >= 0;
+      const chip = control('modeChip');
+      if (chip) {
+        chip.textContent = reviewing ? `Reviewing frame ${selected + 1}` : 'Live camera';
+        chip.classList.toggle('review', reviewing);
+        chip.classList.toggle('live', !reviewing);
+      }
+      const panel = control('selected-frame-panel');
+      if (panel) panel.hidden = !reviewing;
+      if (reviewing) {
+        const hold = an.holds[selected] ?? 1;
+        control('selectedFrameLabel').textContent = `Frame ${selected + 1}`;
+        control('selectedHoldLabel').textContent = hold === 1 ? '1 exposure' : `${hold} exposures`;
+        control('holdValue').textContent = String(hold);
+        control('holdDecrease').disabled = locked || hold <= 1;
+        control('holdIncrease').disabled = locked || hold >= 120;
+        control('panelDuplicate').disabled = locked;
+        control('panelDelete').disabled = locked;
+        control('panelMoveLeft').disabled = locked || selected <= 0;
+        control('panelMoveRight').disabled = locked || selected >= an.frames.length - 1;
+        control('panelBackToLive').disabled = locked;
+      }
       [...strip.children].forEach((node, index) => {
         node.setAttribute('aria-pressed', index === selected);
         node.tabIndex = index === (selected < 0 ? 0 : selected) ? 0 : -1;
@@ -131,22 +153,24 @@ window.stopTimeline = (() => {
     }
     control('liveButton').onclick = () => select(-1);
     control('redoButton').onclick = () => travel(future, past);
-    control('duplicateFrame').onclick = () => {
+    function duplicate() {
       if (blocked() || selected < 0) return;
       if (stopFrames.bytes(an.frames) + an.frames[selected].png.size > stopFrames.maxBytes) {
         control('timelineMessage').textContent = 'Duplicate would exceed the 2 GiB compressed media limit.';
         return;
       }
       mutate(() => {
-      an.frames.splice(selected + 1, 0, an.frames[selected]);
-      an.frameWebps.splice(selected + 1, 0, an.frameWebps[selected]);
-      an.holds.splice(selected + 1, 0, an.holds[selected]); selected++;
+        an.frames.splice(selected + 1, 0, an.frames[selected]);
+        an.frameWebps.splice(selected + 1, 0, an.frameWebps[selected]);
+        an.holds.splice(selected + 1, 0, an.holds[selected]); selected++;
       });
-    };
-    control('deleteFrame').onclick = () => mutate(() => {
-      an.frames.splice(selected, 1); an.frameWebps.splice(selected, 1); an.holds.splice(selected, 1);
-      selected = Math.min(selected, an.frames.length - 1);
-    });
+    }
+    function remove() {
+      mutate(() => {
+        an.frames.splice(selected, 1); an.frameWebps.splice(selected, 1); an.holds.splice(selected, 1);
+        selected = Math.min(selected, an.frames.length - 1);
+      });
+    }
     function move(delta) {
       if (selected + delta < 0 || selected + delta >= an.frames.length) return;
       mutate(() => {
@@ -155,14 +179,26 @@ window.stopTimeline = (() => {
         selected += delta;
       });
     }
+    function setHold(value) {
+      if (blocked() || selected < 0) return;
+      const clamped = Math.max(1, Math.min(120, Math.round(Number(value) || 1)));
+      if (clamped !== an.holds[selected]) mutate(() => { an.holds[selected] = clamped; });
+    }
+    control('duplicateFrame').onclick = duplicate;
+    control('deleteFrame').onclick = remove;
     control('moveLeft').onclick = () => move(-1);
     control('moveRight').onclick = () => move(1);
-    control('frameHold').onchange = event => {
-      const value = Number(event.target.value);
-      if (selected >= 0 && value !== an.holds[selected]) mutate(() => { an.holds[selected] = value; });
-    };
+    control('frameHold').onchange = event => setHold(event.target.value);
+    control('panelDuplicate').onclick = duplicate;
+    control('panelDelete').onclick = remove;
+    control('panelMoveLeft').onclick = () => move(-1);
+    control('panelMoveRight').onclick = () => move(1);
+    control('panelBackToLive').onclick = () => select(-1);
+    control('holdDecrease').onclick = () => setHold((an.holds[selected] ?? 1) - 1);
+    control('holdIncrease').onclick = () => setHold((an.holds[selected] ?? 1) + 1);
     const api = {snapshot, commit, reset, render, preview, updateControls,
       undo: () => travel(past, future), live: () => { selected = -1; },
+      duplicate, remove, move, setHold,
       get selected() { return selected; }};
     an.timeline = api;
     reset();
