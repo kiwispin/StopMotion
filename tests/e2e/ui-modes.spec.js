@@ -151,16 +151,18 @@ test('camera stays off until the student starts it', async ({page}) => {
   expect(await page.evaluate(() => main.animator.capture())).toBe(null);
   await expect(page.locator('#modeChip')).toHaveText('Camera off');
   await expect(page.locator('#toggleButton')).toHaveText('Turn camera on');
+  await expect(page.locator('#startCameraButton')).toBeVisible();
+  await page.screenshot({path: 'test-results/camera-off.png', fullPage: true});
 
   await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
     const stream = canvas.captureStream(30);
     navigator.mediaDevices.getUserMedia = async () => { window.__gumRequests++; return stream; };
   });
-  await page.locator('#toggleButton').click();
+  await page.locator('#startCameraButton').click();
   await expect.poll(() => page.evaluate(() => ({streamOn: main.animator.streamOn, gum: window.__gumRequests})))
     .toEqual({streamOn: true, gum: 1});
-  await expect(page.locator('#captureButton')).toBeEnabled();
+  await expect(page.locator('#startCameraButton')).toBeHidden();
   await expect(page.locator('#toggleButton')).toHaveText('Camera On/Off');
   await expect(page.locator('#modeChip')).toHaveText('Live camera');
 });

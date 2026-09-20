@@ -228,21 +228,42 @@ window.addEventListener('load', evt => {
   }));
 
   let toggleButton = document.getElementById('toggleButton');
-  toggleButton.addEventListener("click", evt => {
+  let startCameraButton = document.getElementById('startCameraButton');
+  let cameraOff = false;
+  function showCameraOff() {
+    cameraOff = true;
+    videoMessage.textContent = 'Camera is off.';
+    retryCameraButton.hidden = true;
+    startCameraButton.hidden = false;
+    startCameraButton.disabled = false;
+    toggleButton.textContent = 'Turn camera on';
+  }
+  function toggleCamera() {
     cameraRefreshGeneration++;
     an.toggleVideo().then(isPlaying => {
       if (isPlaying) {
+        cameraOff = false;
+        startCameraButton.hidden = true;
         toggleButton.textContent = 'Camera On/Off';
         refreshCameraList(an.videoSourceId);
       } else {
-        toggleButton.textContent = 'Turn camera on';
+        showCameraOff();
       }
       an.timeline?.updateControls();
       an.refreshSummary?.();
     }).catch(err => {
+      cameraOff = false;
+      startCameraButton.hidden = true;
       toggleButton.textContent = 'Retry camera';
       an.timeline?.updateControls();
     });
+  }
+  toggleButton.addEventListener("click", toggleCamera);
+  startCameraButton.addEventListener("click", () => {
+    videoMessage.textContent = 'Starting camera…';
+    startCameraButton.hidden = true;
+    startCameraButton.disabled = true;
+    toggleCamera();
   });
 
   let pressButton = (button => {
@@ -453,8 +474,6 @@ window.addEventListener('load', evt => {
       setUpCameraSelectAndAttach();
     }
   } else {
-    videoMessage.textContent = 'Camera is off. Turn on the camera to start.';
-    retryCameraButton.hidden = true;
-    toggleButton.textContent = 'Turn camera on';
+    showCameraOff();
   }
 });

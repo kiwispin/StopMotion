@@ -2063,3 +2063,22 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   pre-existing memory-increment thumbnail fixture race and the timeline delayed-invalid
   test-helper conflict. No regression from the camera privacy change.
 - Status: PENDING REVIEW.
+
+### SM-096 - Prominent stage "Start camera" call-to-action
+
+- Purpose: the camera-off state should offer an obvious next action in the workspace, not
+  only the inspector toggle.
+- Change: added `#startCameraButton` (class primary) to the stage message container; it is
+  shown only when the camera is off. A single shared `toggleCamera()` now drives both the
+  stage CTA and the inspector toggle. Clicking Start sets "Starting camera…", hides the
+  CTA and requests `getUserMedia`; on success the CTA stays hidden and the chip becomes
+  "Live camera"; turning the camera off via the toggle restores "Camera is off." plus the
+  CTA. Off state is "Camera is off." with the Start camera button.
+- Files: index.html, animator.css, js/main.js, tests/e2e/ui-modes.spec.js,
+  STOPMOTION_CHANGELOG.md.
+- Measured (1 worker): full affected suite 58 passed / 2 failed; both failures are the
+  pre-existing memory-increment thumbnail fixture race and the timeline delayed-invalid
+  test-helper conflict. The focused camera test now starts via the stage CTA and asserts
+  the CTA hides and the chip returns to "Live camera". Screenshot inspected:
+  test-results/camera-off.png (Camera off chip, "Camera is off.", Start camera button).
+- Status: PENDING REVIEW.

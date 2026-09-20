@@ -300,6 +300,9 @@ main {
 #retryCameraButton {
   pointer-events: auto;
 }
+#startCameraButton {
+  pointer-events: auto;
+}
 #clockContainer {
   position: absolute;
   right: 12px;
