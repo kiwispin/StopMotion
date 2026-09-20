@@ -486,12 +486,12 @@ var animator = animator || {};
       this.onProjectLoaded?.();
     }
 
-    save(filename) {
+    save(filename, options) {
       filename = filename || 'StopMotion';
       if (!filename.endsWith('.webm'))
         filename += '.webm';
       let title = filename.substr(0, filename.length - 5);
-      return this.encode(title).then((blob => {
+      return this.encode(title, options).then((blob => {
         this.exported = blob;
         let url = URL.createObjectURL(blob);
         let downloadLink = document.createElement('a');
@@ -503,7 +503,8 @@ var animator = animator || {};
       }).bind(this));
     }
 
-    encode(title) {
+    encode(title, options = {}) {
+      const quality = options && Number.isFinite(options.quality) ? options.quality : undefined;
       const holds = this.frames.map((_, i) => this.holds[i] ?? 1);
       if (!stopTimeline.validHolds(holds, this.frames.length))
         return Promise.reject(new Error('Invalid holds or exposure budget.'));
@@ -516,6 +517,9 @@ var animator = animator || {};
       // multiple cores; the muxer still consumes frames strictly in order. This only
       // changes scheduling: each frame is encoded exactly once, at the same quality.
       const sequence = this.frames.flatMap((frame, i) => Array(holds[i]).fill(frame));
+      const total = sequence.length;
+      let done = 0;
+      this.onExportProgress?.({phase: 'encoding', done: 0, total});
       const limit = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4));
       let encoding = 0, failed = null;
       const waiting = [];
@@ -529,8 +533,12 @@ var animator = animator || {};
         const encoded = acquire().then(() => {
           acquired = true;
           check();
-          return stopMedia.encodeFrame(frame);
-        }).then(blob => { check(); return blob; })
+          return stopMedia.encodeFrame(frame, quality);
+        }).then(blob => {
+          done++;
+          this.onExportProgress?.({phase: done >= total ? 'finishing' : 'encoding', done, total});
+          check(); return blob;
+        })
           .finally(() => { if (acquired) release(); })
           .catch(error => { fail(error); throw error; });
         encoded.catch(() => {});  // muxer may not have awaited this frame yet

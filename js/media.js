@@ -23,12 +23,14 @@ window.stopMedia = (() => {
   // Its identity key never retains a full canvas; active exports have separate memory.
   const maxBytes = 16 * 1024 * 1024;
   const keys = new WeakMap(), pending = new WeakMap();
-  let cachedKey = null, cachedBlob = null, calls = 0, inFlight = 0;
-  function encodeFrame(canvas) {
+  let cachedKey = null, cachedBlob = null, cachedQuality = null, calls = 0, inFlight = 0;
+  function encodeFrame(canvas, level = quality) {
+    level = Number.isFinite(level) ? level : quality;
     if (!keys.has(canvas)) keys.set(canvas, {});
     const key = keys.get(canvas);
-    if (key === cachedKey) return Promise.resolve(cachedBlob);
-    if (pending.has(canvas)) return pending.get(canvas);
+    if (key === cachedKey && level === cachedQuality) return Promise.resolve(cachedBlob);
+    const request = pending.get(canvas);
+    if (request && request.level === level) return request.promise;
     calls++; inFlight++;
     const compress = source => new Promise((resolve, reject) => {
         source.toBlob(blob => {
@@ -37,7 +39,7 @@ window.stopMedia = (() => {
             return;
           }
           blob.arrayBuffer().then(buffer => { vp8Payload(buffer); return blob; }).then(resolve, reject);
-        }, 'image/webp', quality);
+        }, 'image/webp', level);
     });
     const encoded = canvas.png ? stopFrames.use(canvas, image => {
       const surface = document.createElement('canvas');
@@ -48,10 +50,10 @@ window.stopMedia = (() => {
       : compress(canvas);
     const result = encoded.then(blob => {
       if (!blob) throw new Error('Export cancelled by project replacement.');
-      if (blob.size <= maxBytes) { cachedKey = key; cachedBlob = blob; }
+      if (blob.size <= maxBytes) { cachedKey = key; cachedBlob = blob; cachedQuality = level; }
       return blob;
     });
-    pending.set(canvas, result);
+    pending.set(canvas, {level, promise: result});
     result.then(() => { pending.delete(canvas); inFlight--; }, () => { pending.delete(canvas); inFlight--; });
     return result;
   }

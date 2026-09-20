@@ -139,3 +139,34 @@ test('save status exposes a state for the indicator dot', async ({page}) => {
   await page.evaluate(() => main.project.changed());
   await expect.poll(() => page.evaluate(() => document.querySelector('.statusbar').dataset.state)).toBe('saved');
 });
+
+test('export flow shows summary, honest progress and completion', async ({page}) => {
+  test.setTimeout(30000);
+  await ready(page);
+  await page.evaluate(async () => { for (let i = 0; i < 3; i++) await main.animator.capture(); });
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#saveButton').click();
+  const expectedSummary = await page.evaluate(() => {
+    const an = main.animator;
+    return `${an.w} \u00d7 ${an.h} \u00b7 ${an.playbackSpeed.toFixed(1)} fps \u00b7 ` +
+      `${(an.exposures() / an.playbackSpeed).toFixed(2)} s`;
+  });
+  expect(await page.locator('#exportSummary').textContent()).toBe(expectedSummary);
+  expect(await page.locator('#exportQuality').inputValue()).toBe('0.98');
+  // Hold WebP encoding so the progress text is observable, then release.
+  await page.evaluate(() => {
+    const native = HTMLCanvasElement.prototype.toBlob, held = [];
+    window.__heldWebp = held;
+    HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+      const run = () => native.call(this, callback, type, quality);
+      if (type === 'image/webp') held.push(run); else run();
+    };
+  });
+  await page.locator('#saveConfirmButton').click();
+  await expect(page.locator('#exportProgressText')).toContainText('Encoding frame');
+  await page.evaluate(() => { while (window.__heldWebp.length) window.__heldWebp.shift()(); });
+  await downloadPromise;
+  await expect(page.locator('#exportProgressText')).toContainText('downloading');
+  await expect(page.locator('#saveConfirmButton')).toHaveText('Done');
+  await page.screenshot({path: 'test-results/export-flow.png', fullPage: true});
+});

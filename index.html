@@ -78,5 +78,21 @@
 <footer>StopMotion <span>Made for small moves and big ideas.</span></footer>
 <div id="dialog-container">
   <dialog id="clearConfirmDialog" aria-labelledby="clear-title"><h2 id="clear-title">Start a new animation?</h2><p>This clears your frames, including the saved copy on this device. Save Project first if you want to keep it.</p><div class="dialog-actions"><button id="clearCancelButton" autofocus>Cancel</button><button id="clearConfirmButton" class="danger">Clear project</button></div></dialog>
-  <dialog id="saveDialog" aria-labelledby="export-title"><h2 id="export-title">Export your animation</h2><p><label for="movieName">Video name</label><input id="movieName" type="text" value="StopMotion"></p><div class="dialog-actions"><button id="saveCancelButton">Cancel</button><button id="saveConfirmButton" class="primary">Export WebM</button></div></dialog>
+  <dialog id="saveDialog" aria-labelledby="export-title">
+    <h2 id="export-title">Export your animation</h2>
+    <p class="export-summary" id="exportSummary"></p>
+    <p><label for="movieName">Video name</label><input id="movieName" type="text" value="StopMotion"></p>
+    <p><label for="exportQuality">Quality</label>
+      <select id="exportQuality">
+        <option value="0.98" selected>High (recommended)</option>
+        <option value="0.9">Standard (smaller file)</option>
+      </select>
+    </p>
+    <div id="exportProgress" class="export-progress" hidden>
+      <div class="export-bar"><div id="exportBarFill"></div></div>
+      <p id="exportProgressText" role="status" aria-live="polite"></p>
+    </div>
+    <p id="exportUnsupported" class="export-warning" hidden>Export isn't supported on this device yet. Try a Chromebook or desktop Chrome, or Save Project and export later.</p>
+    <div class="dialog-actions"><button id="saveCancelButton">Cancel</button><button id="saveConfirmButton" class="primary">Export WebM</button></div>
+  </dialog>
 </div></body></html>

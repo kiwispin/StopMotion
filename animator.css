@@ -555,6 +555,40 @@ dialog input {
   justify-content: flex-end;
   gap: 10px;
 }
+.export-summary {
+  color: var(--text2);
+  font-variant-numeric: tabular-nums;
+}
+.export-progress {
+  margin: 16px 0;
+}
+.export-bar {
+  height: 8px;
+  background: var(--bg4);
+  border-radius: 999px;
+  overflow: hidden;
+}
+#exportBarFill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+#exportProgressText {
+  margin: 8px 0 0;
+  color: var(--text2);
+  font-size: 13px;
+}
+.export-warning {
+  color: var(--warning);
+  font-size: 13px;
+  margin: 12px 0;
+}
+dialog select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
 
 /* Increment 2: mode chip, pending badge, contextual panel */
 .panel-heading-right {

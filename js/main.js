@@ -118,9 +118,46 @@ window.addEventListener('load', evt => {
   });
 
   let saveDialog = document.getElementById('saveDialog');
-  let fileNameInput = saveDialog.querySelector('input');
+  let fileNameInput = document.getElementById('movieName');
+  let qualitySelect = document.getElementById('exportQuality');
+  let exportSummary = document.getElementById('exportSummary');
+  let exportProgress = document.getElementById('exportProgress');
+  let exportBarFill = document.getElementById('exportBarFill');
+  let exportProgressText = document.getElementById('exportProgressText');
+  let exportUnsupported = document.getElementById('exportUnsupported');
+  let saveConfirmButton = document.getElementById('saveConfirmButton');
+  let saveCancelButtonEl = document.getElementById('saveCancelButton');
+  let exportSupported = null;
+  let exportRunning = false;
+
+  async function exportIsSupported() {
+    if (exportSupported !== null) return exportSupported;
+    try {
+      const probe = document.createElement('canvas');
+      probe.width = probe.height = 2;
+      const blob = await new Promise(resolve => probe.toBlob(resolve, 'image/webp', 0.9));
+      exportSupported = !!(blob && blob.type === 'image/webp');
+    } catch (error) { exportSupported = false; }
+    return exportSupported;
+  }
+  function openExportDialog() {
+    exportSummary.textContent = `${an.w} × ${an.h} · ${an.playbackSpeed.toFixed(1)} fps · ` +
+      `${(an.exposures() / an.playbackSpeed).toFixed(2)} s`;
+    exportProgress.hidden = true;
+    exportProgressText.textContent = '';
+    exportBarFill.style.width = '0%';
+    exportUnsupported.hidden = true;
+    saveConfirmButton.textContent = 'Export WebM';
+    saveConfirmButton.disabled = false;
+    saveConfirmButton.onclick = () => saveCB();
+    saveCancelButtonEl.disabled = false;
+    saveDialog.showModal();
+    exportIsSupported().then(supported => {
+      exportUnsupported.hidden = supported;
+    });
+  }
   let saveCB = () => {
-    if (an.projectBusy || an.loadInProgress) return;
+    if (exportRunning || an.projectBusy || an.loadInProgress || !an.frames.length) return;
     let value = fileNameInput.value;
     if (!value.length)
       value = 'StopMotion';
@@ -130,18 +167,44 @@ window.addEventListener('load', evt => {
       value = value.substring(0, value.length - 4);
     if (!value.endsWith('.webm'))
       value += '.webm';
-    saveDialog.close();
+    exportRunning = true;
+    saveConfirmButton.disabled = true;
+    saveCancelButtonEl.disabled = true;
+    saveConfirmButton.textContent = 'Exporting…';
+    exportProgress.hidden = false;
+    exportProgressText.textContent = 'Starting…';
+    exportBarFill.style.width = '0%';
     let topContainer = document.getElementById('top-container');
     topContainer.style.opacity = 0.5;
     topContainer.addEventListener('click', captureClicks, true);
-    an.save(value).then(() => {
+    const finish = () => {
+      exportRunning = false;
       topContainer.style.opacity = null;
       topContainer.removeEventListener('click', captureClicks, true);
+      saveCancelButtonEl.disabled = false;
+    };
+    an.onExportProgress = ({phase, done, total}) => {
+      exportProgressText.textContent = phase === 'finishing'
+        ? 'Finishing the movie…' : `Encoding frame ${done} of ${total}`;
+      exportBarFill.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    };
+    an.save(value, {quality: Number(qualitySelect.value)}).then(() => {
+      an.onExportProgress = null;
+      finish();
+      exportBarFill.style.width = '100%';
+      exportProgressText.textContent = 'Your movie is downloading. Play it in VLC or your browser; add music in Canva.';
+      saveConfirmButton.textContent = 'Done';
+      saveConfirmButton.disabled = false;
+      saveConfirmButton.onclick = () => saveDialog.close();
     }).catch(err => {
-      console.log(err);
+      an.onExportProgress = null;
+      finish();
+      exportProgress.hidden = true;
       document.getElementById('timelineMessage').textContent = 'Export failed: ' + (err.message || err);
-      topContainer.style.opacity = null;
-      topContainer.removeEventListener('click', captureClicks, true);
+      saveDialog.close();
+      saveConfirmButton.textContent = 'Export WebM';
+      saveConfirmButton.disabled = false;
+      saveConfirmButton.onclick = () => saveCB();
     });
   };
 
@@ -277,14 +340,12 @@ window.addEventListener('load', evt => {
   });
 
   let saveButton = document.getElementById('saveButton');
-  saveButton.addEventListener("click", evt => {
+  saveButton.addEventListener("click", () => {
     if (!an.frames.length)
       return;
     if (an.name)
       fileNameInput.value = an.name;
-    let saveConfirmButton = document.getElementById('saveConfirmButton');
-    saveConfirmButton.addEventListener("click", saveCB);
-    saveDialog.showModal();
+    openExportDialog();
   });
 
   let saveCancelButton = document.getElementById('saveCancelButton');

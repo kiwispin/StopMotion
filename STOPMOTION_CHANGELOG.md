@@ -1811,3 +1811,35 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Files: js/timeline.js, index.html, animator.css, README.md,
   tests/e2e/ui-modes.spec.js, tests/e2e/large-project.spec.js, STOPMOTION_CHANGELOG.md.
 - Status: PENDING PARENT REVIEW.
+
+### SM-088 — UI Increment 4: export flow (summary, quality, honest progress, guidance)
+
+- Purpose: fourth approved increment. Make export a short, understandable, honest flow.
+- Changes:
+  - index.html: the export dialog now shows a resolution/fps/duration summary, a plain
+    quality selector (High 0.98 / Standard 0.9), a progress bar plus status text, and an
+    advisory "not supported on this device yet" notice.
+  - js/main.js: openExportDialog computes the summary from the project and probes WebP
+    support (`canvas.toBlob('image/webp')`) to show the notice. saveCB keeps the dialog
+    open, shows "Encoding frame N of M" then "Finishing the movie…", and on success shows
+    download/playback guidance with a Done button; on failure it closes and reports
+    `Export failed: …` through #timelineMessage as before. The duplicate saveConfirm
+    listener was replaced with a single onclick.
+  - js/animator.js: `save(filename, options)` / `encode(title, options)` accept an export
+    quality and report `onExportProgress({phase, done, total})`.
+  - js/media.js: `encodeFrame(canvas, level)` is parameterised; the single-entry cache is
+    keyed by canvas and quality and the in-flight map stores the level with its promise.
+  - animator.css: export summary, progress bar and warning styles.
+- Measured (1 worker): quality + ui 15 passed / 0 failed; ui-modes 5 passed / 0 failed
+  (including the new summary/progress/completion case). Full affected suite 56 passed /
+  3 failed, all pre-existing/flaky and unrelated: memory-increment thumbnail fixture race;
+  timeline delayed-invalid test-helper conflict; and quality.spec:227, which failed in the
+  run only in the `open()` helper on native fake-camera startup (readyState 0) and passed
+  3/3 when re-run alone. Screenshot inspected: test-results/export-flow.png.
+- Design notes: the unsupported state is advisory (a warning), not blocking, so a
+  false-negative probe cannot stop an export that would actually work; a failed attempt
+  still reports the specific encoder error. Progress counts exposures encoded, then
+  switches to "Finishing" for the mux phase.
+- Files: index.html, js/main.js, js/animator.js, js/media.js, animator.css,
+  tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Status: PENDING PARENT REVIEW.
