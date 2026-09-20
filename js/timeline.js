@@ -46,7 +46,7 @@ window.stopTimeline = (() => {
       const locked = blocked();
       // Capture stays available while earlier shots finish compressing in the
       // background; other controls wait until the queue drains.
-      control('captureButton').disabled = an.projectBusy || an.loadInProgress;
+      control('captureButton').disabled = an.projectBusy || an.loadInProgress || !an.streamOn;
       control('playButton').disabled = locked;
       control('undoButton').disabled = locked || !past.length;
       control('redoButton').disabled = locked || !future.length;
@@ -64,9 +64,11 @@ window.stopTimeline = (() => {
       const reviewing = selected >= 0;
       const chip = control('modeChip');
       if (chip) {
-        chip.textContent = reviewing ? `Reviewing frame ${selected + 1}` : 'Live camera';
-        chip.classList.toggle('review', reviewing);
-        chip.classList.toggle('live', !reviewing);
+        chip.textContent = !an.streamOn
+          ? 'Camera off'
+          : reviewing ? `Reviewing frame ${selected + 1}` : 'Live camera';
+        chip.classList.toggle('review', reviewing && an.streamOn);
+        chip.classList.toggle('live', !reviewing || !an.streamOn);
       }
       const liveHeader = control('liveHeader');
       if (liveHeader) liveHeader.hidden = reviewing;

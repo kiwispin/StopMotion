@@ -4,6 +4,8 @@ import {test as base, expect} from '@playwright/test';
 export const test = base.extend({
   cameraDiagnostics: [async ({page}, use, testInfo) => {
     await page.addInitScript(() => {
+      // Test opt-in: production keeps the camera off until the user starts it.
+      window.__stopmotionAutoCamera = true;
       // Explicit test-only decoding; production frames are not canvas-compatible.
       window.testFrameCanvas = async frame => {
         const image = await createImageBitmap(frame.png);

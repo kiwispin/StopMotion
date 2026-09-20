@@ -237,8 +237,11 @@ window.addEventListener('load', evt => {
       } else {
         toggleButton.textContent = 'Turn camera on';
       }
+      an.timeline?.updateControls();
+      an.refreshSummary?.();
     }).catch(err => {
       toggleButton.textContent = 'Retry camera';
+      an.timeline?.updateControls();
     });
   });
 
@@ -431,19 +434,27 @@ window.addEventListener('load', evt => {
   main.timeline = stopTimeline.connect(an);
   main.project = stopProject.connect(an);
 
-  // Everything is set up, now connect to camera.
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia &&
-      navigator.mediaDevices.enumerateDevices) {
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      setUpCameraSelectAndAttach(
-          devices.filter(d => { return d.kind == 'videoinput'; }));
-    }).catch(error => {
-      an.showCameraError(error);
-      attachCamera();
-    });
-  } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    setUpCameraSelectAndAttach();
-  } else {
+  // Privacy: the camera stays off until the student explicitly starts it. An inline
+  // ?camera=1 deep link or the test hook window.__stopmotionAutoCamera may opt in.
+  const autoStart = new URLSearchParams(location.search).has('camera') ||
+    window.__stopmotionAutoCamera === true;
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
     an.showCameraError({name: 'NotSupportedError'});
+  } else if (autoStart) {
+    if (navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        setUpCameraSelectAndAttach(
+            devices.filter(d => { return d.kind == 'videoinput'; }));
+      }).catch(error => {
+        an.showCameraError(error);
+        attachCamera();
+      });
+    } else {
+      setUpCameraSelectAndAttach();
+    }
+  } else {
+    videoMessage.textContent = 'Camera is off. Turn on the camera to start.';
+    retryCameraButton.hidden = true;
+    toggleButton.textContent = 'Turn camera on';
   }
 });

@@ -2027,3 +2027,21 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   tests/e2e/timeline.spec.js, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
 - Status: PENDING REVIEW (mock alignment); the two SM-092 reversals above are called out
   explicitly rather than silently applied.
+
+### SM-094 - Camera is off by default (privacy)
+
+- Owner requirement: the camera must NOT start automatically; that is a privacy risk.
+  The app previously called `enumerateDevices().then(getUserMedia())` on load.
+- Change: the on-load camera startup was removed. With no explicit opt-in the app now
+  shows "Camera is off. Turn on the camera to start.", the toggle reads "Turn camera on",
+  Capture is disabled and the stage chip reads "Camera off". Starting is a deliberate
+  user action via the Camera toggle (which requests `getUserMedia` only then). Explicit
+  opt-in remains for deep links/tests only: `?camera=1` or `window.__stopmotionAutoCamera`.
+- Files: js/main.js, js/timeline.js, index.html, tests/e2e/fixtures.js,
+  tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Added a focused ui-modes test asserting: zero `getUserMedia` calls on load, the
+  "Camera is off" prompt, disabled Capture, and that clicking the toggle starts the
+  camera (streamOn true, Capture enabled, chip "Live camera"). Camera-dependent specs
+  keep auto-start through the fixtures test hook.
+- Status: PENDING REVIEW. Owner requested the push immediately; the full affected suite
+  was aborted before completing and still needs a clean run.

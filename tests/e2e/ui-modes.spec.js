@@ -132,6 +132,38 @@ test('frame numbers, hold badges, zoom and go-to-frame work', async ({page}) => 
   await page.screenshot({path: 'test-results/timeline-scale.png', fullPage: true});
 });
 
+test('camera stays off until the student starts it', async ({page}) => {
+  test.setTimeout(30000);
+  await page.addInitScript(() => {
+    navigator.mediaDevices.enumerateDevices = async () => [];
+    window.__gumRequests = 0;
+    navigator.mediaDevices.getUserMedia = async () => {
+      window.__gumRequests++;
+      throw new DOMException('Fixture', 'NotAllowedError');
+    };
+  });
+  await page.goto('/');
+  await page.evaluate(() => main.project.ready);
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => window.__gumRequests)).toBe(0);
+  expect(await page.evaluate(() => document.getElementById('video-message').textContent)).toContain('Camera is off');
+  expect(await page.evaluate(() => main.animator.streamOn)).toBe(false);
+  await expect(page.locator('#captureButton')).toBeDisabled();
+  await expect(page.locator('#toggleButton')).toHaveText('Turn camera on');
+
+  await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
+    const stream = canvas.captureStream(30);
+    navigator.mediaDevices.getUserMedia = async () => stream;
+  });
+  await page.locator('#toggleButton').click();
+  await expect.poll(() => page.evaluate(() => ({streamOn: main.animator.streamOn, gum: window.__gumRequests})))
+    .toEqual({streamOn: true, gum: 1});
+  await expect(page.locator('#captureButton')).toBeEnabled();
+  await expect(page.locator('#toggleButton')).toHaveText('Camera On/Off');
+  await expect(page.locator('#modeChip')).toHaveText('Live camera');
+});
+
 test('save status exposes a state for the indicator dot', async ({page}) => {
   await page.addInitScript(() => {
     navigator.mediaDevices.enumerateDevices = async () => [];
