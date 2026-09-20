@@ -156,8 +156,10 @@ test('camera stays off until the student starts it', async ({page}) => {
 
   await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 48;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = 'red'; ctx.fillRect(0, 0, 64, 48);
     const stream = canvas.captureStream(30);
     navigator.mediaDevices.getUserMedia = async () => { window.__gumRequests++; return stream; };
+    window.__frameTimer = setInterval(() => { try { stream.getVideoTracks()[0].requestFrame(); } catch (error) {} }, 30);
   });
   await page.locator('#startCameraButton').click();
   await expect.poll(() => page.evaluate(() => ({streamOn: main.animator.streamOn, gum: window.__gumRequests})))
@@ -165,6 +167,16 @@ test('camera stays off until the student starts it', async ({page}) => {
   await expect(page.locator('#startCameraButton')).toBeHidden();
   await expect(page.locator('#toggleButton')).toHaveText('Camera On/Off');
   await expect(page.locator('#modeChip')).toHaveText('Live camera');
+
+  // With a captured frame, the off prompt must not cover review or playback.
+  await page.waitForFunction(() => main.animator.video.readyState >= 2, null, {timeout: 5000});
+  await page.evaluate(async () => { await main.animator.capture(); });
+  await page.locator('#toggleButton').click();
+  await expect(page.locator('#startCameraButton')).toBeVisible();
+  await page.locator('#thumbnail-container canvas').first().click();
+  await expect(page.locator('#startCameraButton')).toBeHidden();
+  await page.locator('#liveButton').click();
+  await expect(page.locator('#startCameraButton')).toBeVisible();
 });
 
 test('save status exposes a state for the indicator dot', async ({page}) => {

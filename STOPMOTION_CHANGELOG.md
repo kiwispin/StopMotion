@@ -2082,3 +2082,24 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   the CTA hides and the chip returns to "Live camera". Screenshot inspected:
   test-results/camera-off.png (Camera off chip, "Camera is off.", Start camera button).
 - Status: PENDING REVIEW.
+
+### SM-097 - Camera-off prompt must not cover the animation
+
+- Owner report: "Camera is Off" and "Start Camera" sat on top of the animation being
+  watched. The message container (z-index 3) overlapped the playback canvas (z-index 1).
+- Change: a new `updateCameraCta()` shows the off prompt + Start camera CTA only in the
+  live view (camera off AND not reviewing AND not playing) and clears only its own text
+  otherwise; camera-error messages are untouched. It is invoked from `an.onModeChange`
+  (called at the end of `timeline.updateControls`) and from `an.onPlaybackState`, and on
+  camera start/stop. The stage chip now reads "Playing" during playback and "Camera off"
+  only when idle. `showCameraOff()` no longer forces the overlay visible.
+- Files: js/main.js, js/timeline.js, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Test: the focused camera test was extended - with a captured frame, turning the camera
+  off shows the CTA in live view, hides it when a frame is selected for review, and shows
+  it again on returning to live. Passes.
+- Measured: full affected suite run reported 54 passed / 6 failed, but that run took 12.6m
+  versus the usual ~1.5m (host load). The 6 failures are the two pre-existing ones
+  (memory-increment thumbnail fixture race; timeline delayed-invalid helper) plus four
+  load-induced timeouts; the newly-failing project cases and the timeline native-duration
+  case all pass when re-run in isolation (14.3s / 7.9s / 16.3s). No functional regression.
+- Status: PENDING REVIEW.

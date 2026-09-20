@@ -74,6 +74,7 @@ window.addEventListener('load', evt => {
     marker.style.transform = 'translateX(-100%)';
     progress.setAttribute('aria-valuenow', 0);
     if (playing) progressRequest = requestAnimationFrame(tick);
+    updateCameraCta();
   };
   let cameraRefreshGeneration = 0;
   let refreshCameraList = (() => { return Promise.resolve([]); });
@@ -230,20 +231,31 @@ window.addEventListener('load', evt => {
   let toggleButton = document.getElementById('toggleButton');
   let startCameraButton = document.getElementById('startCameraButton');
   let cameraOff = false;
+  // The off-state prompt/CTA must never cover playback or a reviewed frame.
+  function updateCameraCta() {
+    const reviewing = (an.timeline?.selected ?? -1) >= 0;
+    const playing = !!an.isPlaying();
+    const show = cameraOff && !reviewing && !playing;
+    startCameraButton.hidden = !show;
+    if (show) {
+      if (!videoMessage.textContent || videoMessage.textContent === 'Starting camera…')
+        videoMessage.textContent = 'Camera is off.';
+    } else if (videoMessage.textContent === 'Camera is off.') {
+      videoMessage.textContent = '';
+    }
+  }
   function showCameraOff() {
     cameraOff = true;
-    videoMessage.textContent = 'Camera is off.';
     retryCameraButton.hidden = true;
-    startCameraButton.hidden = false;
     startCameraButton.disabled = false;
     toggleButton.textContent = 'Turn camera on';
+    updateCameraCta();
   }
   function toggleCamera() {
     cameraRefreshGeneration++;
     an.toggleVideo().then(isPlaying => {
       if (isPlaying) {
         cameraOff = false;
-        startCameraButton.hidden = true;
         toggleButton.textContent = 'Camera On/Off';
         refreshCameraList(an.videoSourceId);
       } else {
@@ -251,11 +263,12 @@ window.addEventListener('load', evt => {
       }
       an.timeline?.updateControls();
       an.refreshSummary?.();
+      updateCameraCta();
     }).catch(err => {
       cameraOff = false;
-      startCameraButton.hidden = true;
       toggleButton.textContent = 'Retry camera';
       an.timeline?.updateControls();
+      updateCameraCta();
     });
   }
   toggleButton.addEventListener("click", toggleCamera);
@@ -454,6 +467,7 @@ window.addEventListener('load', evt => {
 
   main.timeline = stopTimeline.connect(an);
   main.project = stopProject.connect(an);
+  an.onModeChange = updateCameraCta;
 
   // Privacy: the camera stays off until the student explicitly starts it. An inline
   // ?camera=1 deep link or the test hook window.__stopmotionAutoCamera may opt in.

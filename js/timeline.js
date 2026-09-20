@@ -62,13 +62,14 @@ window.stopTimeline = (() => {
       control('frameHold').value = selected < 0 ? 1 : an.holds[selected];
       control('goToFrame').max = Math.max(1, an.frames.length);
       const reviewing = selected >= 0;
+      const playing = !!an.isPlaying();
       const chip = control('modeChip');
       if (chip) {
-        chip.textContent = !an.streamOn
-          ? 'Camera off'
+        chip.textContent = playing ? 'Playing'
+          : !an.streamOn ? 'Camera off'
           : reviewing ? `Reviewing frame ${selected + 1}` : 'Live camera';
-        chip.classList.toggle('review', reviewing && an.streamOn);
-        chip.classList.toggle('live', !reviewing || !an.streamOn);
+        chip.classList.toggle('review', reviewing && an.streamOn && !playing);
+        chip.classList.toggle('live', !reviewing || !an.streamOn || playing);
       }
       const liveHeader = control('liveHeader');
       if (liveHeader) liveHeader.hidden = reviewing;
@@ -97,6 +98,7 @@ window.stopTimeline = (() => {
         canvas.setAttribute('aria-disabled', String(locked));
         cell.classList.toggle('selected', index === selected);
       }
+      an.onModeChange?.();
     }
     function cellCanvas(index) {
       return strip.querySelector(`.thumb[data-index="${index}"] canvas`);
