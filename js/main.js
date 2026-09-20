@@ -23,6 +23,7 @@ window.addEventListener('load', evt => {
   an.refreshSummary = () => {
     document.getElementById('frame-count').textContent = an.frames.length;
     document.getElementById('duration').textContent = (an.exposures() / an.playbackSpeed).toFixed(2) + ' s';
+    document.getElementById('transportFrames').textContent = an.frames.length + (an.frames.length === 1 ? ' frame' : ' frames');
     document.getElementById('onionOpacity').value = an.onionOpacity;
     document.getElementById('onionValue').textContent = an.onionOpacity + '%';
     snapshotCanvas.style.opacity = an.onionOpacity / 100;

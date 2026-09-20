@@ -113,19 +113,22 @@ test('frame numbers, hold badges, zoom and go-to-frame work', async ({page}) => 
   ]);
 
   const before = await page.locator('#thumbnail-container canvas').first().boundingBox();
+  const beforeVar = await page.evaluate(() =>
+    getComputedStyle(document.getElementById('thumbnail-container')).getPropertyValue('--thumb-w').trim());
   await page.locator('#zoomIn').click();
   const after = await page.locator('#thumbnail-container canvas').first().boundingBox();
+  const afterVar = await page.evaluate(() =>
+    getComputedStyle(document.getElementById('thumbnail-container')).getPropertyValue('--thumb-w').trim());
   expect(after.width).toBeGreaterThan(before.width);
-  expect(await page.evaluate(() =>
-    getComputedStyle(document.getElementById('thumbnail-container')).getPropertyValue('--thumb-w').trim())).toBe('112px');
+  expect(parseInt(afterVar)).toBe(parseInt(beforeVar) + 16);
 
   await page.locator('#goToFrame').fill('5');
-  await page.locator('#goToFrameButton').click();
+  await page.locator('#goToFrame').press('Enter');
   expect(await page.evaluate(() => ({
     status: document.getElementById('selectionStatus').textContent,
     chip: document.getElementById('modeChip').textContent,
     selected: main.animator.timeline.selected
-  }))).toEqual({status: 'Frame 5', chip: 'Reviewing frame 5', selected: 4});
+  }))).toEqual({status: 'Frame 5 of 5', chip: 'Reviewing frame 5', selected: 4});
   await page.screenshot({path: 'test-results/timeline-scale.png', fullPage: true});
 });
 

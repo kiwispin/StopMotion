@@ -120,7 +120,7 @@ test('colored timeline edits share pixels, undo/redo branch and live capture', a
   const original = await hashes(page);
   expect(new Set(original).size).toBe(3);
   await select(page, 0);
-  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1');
+  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1 of 3');
   expect(await page.evaluate(() => [...main.animator.playContext.getImageData(0, 0, 1, 1).data])).toEqual([255,0,0,255]);
   await page.locator('#duplicateFrame').click();
   expect(await hashes(page)).toEqual([original[0], original[0], original[1], original[2]]);
@@ -141,10 +141,10 @@ test('colored timeline edits share pixels, undo/redo branch and live capture', a
   expect(state.thumbs).toEqual(state.frames);
   await select(page, 0);
   await page.keyboard.press('ArrowRight');
-  await expect(page.locator('#selectionStatus')).toHaveText('Frame 2');
+  await expect(page.locator('#selectionStatus')).toHaveText('Frame 2 of 4');
   await expect(page.locator('#thumbnail-container canvas').nth(1)).toBeFocused();
   await page.keyboard.press('End');
-  await expect(page.locator('#selectionStatus')).toHaveText('Frame 4');
+  await expect(page.locator('#selectionStatus')).toHaveText('Frame 4 of 4');
   await page.locator('#liveButton').click();
   await expect(page.locator('#selectionStatus')).toHaveText('Live camera');
   await select(page, 0);
@@ -153,7 +153,7 @@ test('colored timeline edits share pixels, undo/redo branch and live capture', a
   expect((await pixels(page)).frames.at(-1)).toEqual([0,255,255]);
   await expect(page.locator('#selectionStatus')).toHaveText('Live camera');
   await page.locator('#undoButton').click();
-  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1');
+  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1 of 4');
   await page.locator('#redoButton').click();
   expect((await pixels(page)).frames.at(-1)).toEqual([0,255,255]);
 });
@@ -324,7 +324,7 @@ test('delayed invalid project locks timeline and preserves selection and history
   await page.evaluate(() => rejectImage());
   await expect(page.locator('#project-status')).toContainText('Current project preserved');
   expect(await hashes(page)).toEqual(original);
-  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1');
+  await expect(page.locator('#selectionStatus')).toHaveText('Frame 1 of 3');
   await expect(page.locator('#undoButton')).toBeEnabled();
   await expect(page.locator('#redoButton')).toBeDisabled();
   await expect(page.locator('#moveLeft')).toBeDisabled();

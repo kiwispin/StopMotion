@@ -56,7 +56,9 @@ window.stopTimeline = (() => {
       control('moveRight').disabled = locked || selected < 0 || selected >= an.frames.length - 1;
       control('liveButton').disabled = locked;
       control('liveButton').setAttribute('aria-pressed', selected < 0);
-      control('selectionStatus').textContent = selected < 0 ? 'Live camera' : `Frame ${selected + 1}`;
+      control('selectionStatus').textContent = selected < 0 ? 'Live camera' : `Frame ${selected + 1} of ${an.frames.length}`;
+      const selectedHold = an.holds[selected] ?? 1;
+      control('holdSummary').textContent = selected < 0 ? '' : `${selectedHold} ${selectedHold === 1 ? 'exposure' : 'exposures'} · ${(selectedHold / an.playbackSpeed).toFixed(2)} sec`;
       control('frameHold').value = selected < 0 ? 1 : an.holds[selected];
       control('goToFrame').max = Math.max(1, an.frames.length);
       const reviewing = selected >= 0;
@@ -66,6 +68,10 @@ window.stopTimeline = (() => {
         chip.classList.toggle('review', reviewing);
         chip.classList.toggle('live', !reviewing);
       }
+      const liveHeader = control('liveHeader');
+      if (liveHeader) liveHeader.hidden = reviewing;
+      const nextHint = control('nextFrameHint');
+      if (nextHint) nextHint.textContent = reviewing ? '' : `Next frame: ${an.frames.length + 1}`;
       const panel = control('selected-frame-panel');
       if (panel) panel.hidden = !reviewing;
       if (reviewing) {
@@ -262,6 +268,7 @@ window.stopTimeline = (() => {
       render();
     }
 
+    control('playbackSpeed').addEventListener('input', updateControls);
     control('liveButton').onclick = () => select(-1);
     control('redoButton').onclick = () => travel(future, past);
     control('duplicateFrame').onclick = duplicate;

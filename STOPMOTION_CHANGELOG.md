@@ -1841,5 +1841,189 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   still reports the specific encoder error. Progress counts exposures encoded, then
   switches to "Finishing" for the mux phase.
 - Files: index.html, js/main.js, js/animator.js, js/media.js, animator.css,
-  tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+    tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
 - Status: PENDING PARENT REVIEW.
+
+### SM-089 — Complete mint/charcoal editing workspace (UI only)
+- Status: PENDING PARENT REVIEW; source frozen at handoff.
+- Baseline: clean working tree at e169bb9. Inspected current HTML/CSS and
+  DESIGN_AUDIT.md; preserved the user's current implementation, including selected-frame
+  inspector, virtualized timeline, zoom/go-to, and export dialogs/progress. Audio remains
+  absent as in the current app. No JS, tests, dependencies or media/storage changes.
+- Files: index.html, animator.css, STOPMOTION_CHANGELOG.md only.
+- Presentation: warm charcoal panels, mint primary/selection accents, readable status
+  wrapping, compact headings, safe-area dialogs, visible keyboard focus and 44px controls.
+  Moved the existing New/Clear button into the project toolbar; no duplicated ID/control.
+  Retained intentional inspector/timeline mirrors. Desktop settings scroll internally;
+  portrait stacks studio, timeline and settings without hiding controls in menus.
+- Measured Chromium smoke checks (two inline browser runs, both exit 0): all 85 original
+  static IDs present exactly once; 0 pageerrors in either run. At 1365x768, 1024x1366,
+  and 768x1024, page scroll widths were exactly 1365, 1024, and 768px; 0 visible
+  button/input/select targets below 44px. Initial captured-fixture studio ratios were
+  448/252, 646/363.375, and 718/403.875 (16:9, without stretching).
+- Initial six-capture fixture: transport/strip bottom positions were 489/728.5px desktop,
+  1037/1326.5px at 1024, and 654.875/944.375px portrait (normal vertical page scrolling).
+  Hold increase, Duplicate, Undo, Export dialog/Cancel and New/Clear dialog/Cancel
+  completed at each viewport. Follow-up checks exercised Flip, Clock, reachable Import,
+  and keyboard focus (solid outline). Export dialog was 440x355px and within each viewport.
+- 200-frame UI fixture: Go to frame selected index 199; horizontal strip scrollLeft
+  17288px after zoom; page remained 768px wide. This is a layout check, not a media-scale
+  or persistence benchmark. No expensive media suites or physical-device tests run.
+- Screenshot fixture refinement: initial frame 1 was captured before the simulated scene
+  updated and appeared blank; final screenshots use six deterministic canvas-backed
+  records and review frame 3. No production behavior changed to accommodate the fixture.
+  No rejected implementation attempt in this scoped pass; acceptance remains reviewer-owned.
+- Artifacts: test-results/ui-mockup/{1365x768,1024x1366,768x1024}.png;
+  results.json (initial capture/layout measurements), interactions.json (focused follow-up).
+  CSS respects reduced motion. Real iPad/browser UX remains a user checkpoint.
+
+### SM-090 — Structural workspace revision after mockup review
+- SM-089 visual composition REFUSED by parent: restyling retained an undersized stage
+  and capture-centric transport. Its functional measurements remain valid, not visual acceptance.
+- Revision status: PENDING PARENT VISUAL REVIEW. Inspected the supplied approved mockup.
+  Only index.html, animator.css and this log changed; all current JS remains untouched.
+- Stage now fills the upper-left studio with contained, uncropped image presentation;
+  resolution is an overlay rather than a separate desktop header. Desktop columns are
+  3:1 with a 300px minimum inspector; 901–1099px uses a 300px inspector; <=900px stacks
+  stage/transport, timeline, inspector. Existing Capture moved into camera settings;
+  Undo/Redo moved into timeline. Selected status moved into timeline heading. Existing
+  inspector mirrors and Hold controls remain wired, with a prominent Back to live action.
+  Export has primary mint emphasis. No fake project title, audio or unwired controls added.
+- Focused Chromium run exit 0: 85 original static IDs each exactly once, 0 pageerrors,
+  0 visible controls below 44px; page widths exactly 1365/1024/768 at requested viewports.
+  Stage bounds: 988.75x347 desktop (previous 448x252), 678x867 at 1024x1366,
+  718x403.875 portrait. Inspector widths: 330.25, 300, 736px respectively.
+  These are stage bounds, not a claim of image stretching: contained 16:9 pixels retain
+  their ratio, with letterboxing where workspace and image proportions differ.
+- Transport/first-row strip bottoms: 491.5/732.5px desktop, 1039.5/1330.5px at1024,
+  646.875/937.875px portrait. Export dialogs 440x355 fit all three viewports;
+  keyboard focus outline solid. Hold/Duplicate/Undo, both dialogs and Cancel, reachable
+  Import, Back to live and relocated Capture exercised (6 frames became 7).
+  200-frame timeline selected index199 with internal scrollLeft17288; page width768.
+- Replaced screenshots with a real canvas-stream simulated camera fixture, no camera
+  error overlay: test-results/ui-sm090/1365x768.png, 1024x1366.png, 768x1024.png.
+  Inspected all three; results.json records exact measurements. Full image is contained
+  rather than cropped to mimic the mockup. Real iPad checks remain pending. No costly
+  media suite, JS changes, commits or dependency changes. Frozen for parent review.
+- Parent follow-up: composition judged much closer, but stretched stage sizing REFUSED.
+  Revision 2 changes only CSS layout and this log: stage uses actual --stage-ratio with
+  16:9 fallback, auto height, no flex height expansion. Upper row follows stage height;
+  inspector remains independently scrollable. Vertical page scrolling is intentional.
+- Revision 2 focused screenshot run exit0, 0 pageerrors: actual stage 988.75x556.171875
+  at1365x768, 678x381.375 at1024x1366, 718x403.875 at768x1024. All ratios verified16:9;
+  horizontal page widths exactly1365/1024/768. Desktop document now977px tall (scrolls),
+  portrait1730px. Inspected all three selected-state screenshots: no stretched black-bar
+  workspace. Capture remains enabled by existing JS (disabled=false, opacity1 in each);
+  no fake disabled styling or behavior changes. No HTML/JS changes in this correction.
+- Current artifacts: test-results/ui-sm090-r2/{1365x768,1024x1366,768x1024}.png and
+  results.json. Revision 2 remains PENDING PARENT ACCEPTANCE; source frozen again.
+
+### SM-091 — Mockup-like timeline header, editing toolbar and cards
+- Previous flat bottom layout REFUSED by parent/user. Inspected approved mockup and
+  supplied 2221x359 screenshot. Revision PENDING PARENT VISUAL ACCEPTANCE.
+- Files: index.html, animator.css, STOPMOTION_CHANGELOG.md only. No JS/media/storage,
+  stage layout, dependencies or tests changed. The only inspector markup adjustment is
+  relocation of its existing wired holdDecrease/holdIncrease buttons into the timeline;
+  inspector outputs remain. No fake or duplicate event controls were introduced.
+- Header: title/count, actual selectionStatus, distinct mint Live action; duration,
+  labelled Zoom and Go-to grouped at right, wrapping onto a header subrow on iPad.
+  Separate toolbar: Undo/Redo | Move left/right | Duplicate/Delete | Hold minus,
+  editable numeric field, plus and truthful static helper. Dividers preserve group identity.
+  Existing zoom input starts at144 instead of96, producing144x108 cards through existing
+  JS geometry. Mint selected outline, numbered labels and existing hold badges retained.
+  Strip remains content-height, internally scrollable, with a short explanatory footer.
+- First focused run exit1: attempted Move right after deletion while selection was absent;
+  correctly disabled control timed out at30000ms. Refused harness assumption, not app fix.
+  Revised fixture explicitly reselects frame3 before Move; no behavior changed for the test.
+- Corrected focused Chromium run exit0: all85 original IDs exactly once, 0 pageerrors.
+  Hold +/- and direct numeric edit, Duplicate/Delete, Undo/Redo, Move both directions,
+  Live, Go-to and Zoom exercised. Page widths1365/1024/768 exactly match viewports;
+  0 timeline button/input targets below44px. Header/toolbar heights69/61px desktop,
+  125/61px at1024,125/117px portrait. Non-overlapping rows; thumbnail strip160px high
+  with144x108px cards at all sizes. 200-frame fixture selects index199, scrollLeft26888,
+  page still768px wide. Larger cards do not fabricate frames to fill short projects.
+- Inspected timeline screenshots at all three sizes. Artifacts:
+  test-results/ui-sm091/{1365x768,1024x1366,768x1024}.png (full workspace),
+  timeline-{1365,1024,768}.png (bottom panel), results.json. No expensive media suites.
+  Source frozen for review; no acceptance claimed before parent review.
+- Parent visual review ACCEPTED the revised bottom structure: header/actions, separate
+  grouped editing row, thumbnails/help visibly match the mockup composition. The previous
+  flat layout remains REFUSED as recorded above. Measurements and first failed harness
+  attempt retained. git diff --check exit0 (line-ending warnings only). Implementation
+  frozen; no further UI changes or tests after this acceptance.
+
+### SM-092 — Exact-crop filmstrip revision
+- User REFUSED prior SM-089–091 bottom presentation despite earlier parent acceptance;
+  preserve that history rather than treating it as final user approval. Inspected the
+  new exact target crop. Current revision PENDING REVIEW, with dynamic text gap below.
+- Files: index.html, animator.css, STOPMOTION_CHANGELOG.md only. JS untouched.
+  Live and duration relocated to playback; filmstrip header contains title/count,
+  selection output, Zoom and Go-to only. Existing Go button retained, visually clipped
+  until keyboard focus; existing Enter handler on the number field is the normal submit.
+  Edit groups retain requested order, icons, separators, neutral/red treatment and round
+  Hold buttons. Existing zoom default136 yields136x102 cards (supported8px zoom steps,
+  rather than hardcoding132 and breaking virtualized positions). Existing10px gap retained.
+  Single exposures get a decorative ×1 badge; actual hold metadata/selection unchanged.
+  Full-width panel2016px at2048 viewport; no invented frames or vertical spacer region.
+  Native horizontal scrolling retained; scrollbar visibility follows browser/platform.
+- Focused Chromium run exit0; 85 original IDs exactly once, 0 pageerrors. At2048x1152,
+  1024x1366,768x1024, page widths exactly2048/1024/768. Panels2016x315,992x413.5,
+  736x413.5 respectively. Desktop header57px and toolbar70px; tablet header105.5px
+  and toolbar120px after wrapping. Card136x102 and strip148px at each size.
+- Hold +/-/numeric, Duplicate/Delete, Undo/Redo, Move both ways exercised. Both relocated
+  Live and inspector Back to live return selected=-1. Go-to via Enter selects199 in a
+  200-frame fixture; Zoom works, scrollLeft25296, page width remains768. No media suites.
+- Inspected crops: test-results/ui-sm092/timeline-{2048,1024,768}.png; results.json.
+  Remaining exact-text mismatch explicitly NOT faked: timeline.js currently outputs only
+  Frame N, not Frame N of M, and no selected-pose seconds output exists. Request parent
+  permission for minimal UI-text-only JS adjustment before changing those dynamic labels.
+  Static truthful hold helper retained meanwhile. Frozen pending that review/authority.
+- Parent ACCEPTED SM-092 panel geometry and authorized two UI-only dynamic labels.
+  Added holdSummary span; timeline.js updateControls now renders Frame N of M and
+  hold / playbackSpeed to2 decimals with singular/plural exposure text; live summary empty.
+  Footer unchanged. No animation/media/storage logic changed, no CSS changes this revision.
+- First text check exit1: after FPS input, helper retained0.29sec from7fps instead of
+  0.17sec at12fps because rate changes did not refresh timeline controls. Revised with
+  one input listener in timeline.js calling existing updateControls; presentation refresh
+  only. Failed attempt retained, not passed off as a test-fixture issue.
+- Corrected focused run exit0, 0 pageerrors: Frame3 of6, 2 exposures ·0.17sec at12fps;
+  returning live gives Live camera and empty summary. All85 original IDs plus holdSummary
+  appear exactly once (86). At2048/1024/768, page widths unchanged and panel sizes
+  2016x315,992x413.5,736x413.5. Inspected refreshed filmstrip screenshots:
+  test-results/ui-sm092-text/timeline-{2048,1024,768}.png; results.json.
+  Text revision pending parent review; source frozen. No media tests or broad changes.
+
+### SM-093 - Align the workspace to the provided mockup (layout/visual fixes)
+
+- Purpose: owner asked to make the current workspace match the supplied mockup; this
+  revises the SM-089-092 presentation. No animation/media/storage/export logic changed.
+- Desktop shell fixed: at >=901px `body` is `height:100dvh; overflow:hidden`, `main` is
+  `flex:1; min-height:0` with rows `minmax(0,1fr) auto`, `#control-column` scrolls
+  internally, and the stage is height-aware again via the container query. The page no
+  longer scrolls on desktop (ui.spec had measured scrollHeight 1021>900 and 941>768).
+- Mock alignment: Frame rate moved into the transport (mock shows fps there); the empty
+  Playback panel group removed. Show clock moved into Tools and the onion hint shortened
+  so the visible panel matches the mock (Ready to capture, Camera, Frame guides) with
+  Tools scrolling below. Added a "Ready to capture" header/subtitle (#liveHeader) and
+  "Next frame: N" (#nextFrameHint), both hidden while reviewing. Added a transport
+  frame-count summary ("N frames - duration") via #transportFrames. Consolidated
+  .export-action into a single filled accent button (mock) and dropped the duplicate
+  outline rule.
+- Two deliberate reversals of SM-092 choices, flagged for review: (1) the decorative
+  "x1" hold badge was removed so only "xN" with N>1 shows, matching the mock; (2) the
+  Frame-rate control now lives in the transport rather than the inspector.
+- Tests updated for the accepted new contract (owner's changes, not logic changes):
+  timeline.spec selectionStatus expectations are "Frame N of M"; ui-modes zoom
+  expectation derives from the current `--thumb-w` (default 136, 8px steps); go-to-frame
+  uses Enter because the Go button is intentionally visually clipped until focused;
+  ui-modes export summary is computed from live state.
+- Measured (1 worker): full affected suite 56 passed / 3 failed; all three are
+  pre-existing/flaky and unrelated - memory-increment thumbnail fixture race, timeline
+  delayed-invalid test-helper conflict, and timeline history-50 exceeding its own 30s
+  timeout under sustained load (passes alone in ~11s). ui.spec passes at 1440/1024/768/390
+  with no page scroll. Screenshots inspected: test-results/studio-1440.png,
+  studio-1024.png, review-mode.png, timeline-scale.png, export-flow.png.
+- Files: index.html, animator.css, js/timeline.js, js/main.js,
+  tests/e2e/timeline.spec.js, tests/e2e/ui-modes.spec.js, STOPMOTION_CHANGELOG.md.
+- Status: PENDING REVIEW (mock alignment); the two SM-092 reversals above are called out
+  explicitly rather than silently applied.

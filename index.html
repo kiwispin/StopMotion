@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>StopMotion — Frame by frame</title>
 <link rel="stylesheet" href="animator.css">
 <script src="js/assets.js"></script><script src="js/media.js"></script><script src="js/frame-store.js"></script><script src="js/webm.js"></script>
@@ -8,10 +8,10 @@
 <script src="js/timeline.js"></script><script src="js/project.js"></script><script src="js/main.js"></script>
 </head><body>
 <header class="topbar">
-  <div class="brand"><span class="brand-icon" aria-hidden="true">▣</span><div><h1>StopMotion</h1><small>Frame by frame. Bring it to life.</small></div></div>
+  <div class="brand"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><rect x="5" y="5" width="22" height="22" rx="5" stroke="currentColor" stroke-width="2"/><path d="m13 11 8 5-8 5V11Z" fill="currentColor"/><path d="M10 2v6M22 2v6M10 24v6M22 24v6" stroke="currentColor" stroke-width="2"/></svg></span><div><h1>StopMotion</h1><small>Small moves. Big stories.</small></div></div>
   <div class="statusbar"><span class="status-dot" aria-hidden="true"></span><p id="project-status" role="status" aria-live="polite"></p></div>
   <nav id="project-controls" aria-label="Project">
-    <button id="openProject">Open Project</button><button id="saveProject">Save Project</button><button id="saveButton">Export Video</button><button id="retrySave" hidden>Retry autosave</button>
+    <button id="openProject">Open Project</button><button id="saveProject">Save Project</button><button id="saveButton" class="export-action">Export Video</button><button id="clearButton" class="danger">New / Clear project</button><button id="retrySave" hidden>Retry autosave</button>
     <input id="projectFile" type="file" accept=".stopmotion,application/json" hidden>
   </nav>
 </header>
@@ -26,20 +26,18 @@
       <div id="message-container"><div id="video-message" role="status"></div><button id="retryCameraButton" hidden>Retry camera</button></div>
       <div id="clockContainer" style="display:none" aria-label="Animation clock">
         <svg id="clock" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46" fill="#1c1c1c" stroke="#b8b8b8"/></svg>
-        <svg id="clock-hand" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 50V9" stroke="#60a5fa" stroke-width="3"/></svg>
+        <svg id="clock-hand" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 50V9" stroke="currentColor" stroke-width="3"/></svg>
       </div>
     </div></div>
     <div id="progress-container" role="progressbar" aria-label="Elapsed animation progress" title="Elapsed animation time" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-marker"></div></div>
-    <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="captureButton" class="primary"><span aria-hidden="true">●</span> Capture frame <kbd>Space</kbd></button><button id="undoButton">↶ Undo</button><button id="redoButton">↷ Redo</button></div>
+    <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="liveButton" aria-pressed="true">Live camera</button><span class="hint">Preview your animation</span><div id="speed-container"><div class="field-heading"><label for="playbackSpeed">Frame rate</label><span><output id="fps" for="playbackSpeed">7.0</output> FPS</span></div><input id="playbackSpeed" type="range" min="2" max="12" step="0.5" value="7"></div><span class="transport-meta"><span id="transportFrames"></span><span aria-hidden="true">&middot;</span><output id="duration">0.00 s</output></span></div>
   </section>
   <aside id="control-column" aria-label="Camera and animation settings">
     <section id="selected-frame-panel" class="settings-group" hidden>
       <h2>Selected frame</h2>
       <div class="field-heading"><output id="selectedFrameLabel">Frame 1</output><output id="selectedHoldLabel">1 exposure</output></div>
       <div class="hold-stepper" role="group" aria-label="Hold exposures">
-        <button id="holdDecrease" aria-label="Decrease hold">&minus;</button>
         <output id="holdValue">1</output>
-        <button id="holdIncrease" aria-label="Increase hold">+</button>
       </div>
       <p class="hint">Hold extends this pose. Duplicate adds a new editable frame.</p>
       <div class="button-pair"><button id="panelDuplicate">Duplicate</button><button id="panelDelete" class="danger">Delete</button></div>
@@ -47,33 +45,35 @@
       <button id="panelBackToLive">Back to live camera</button>
     </section>
     <div id="button-container">
-    <section class="settings-group"><h2>Camera</h2><div id="camera-settings"></div><div class="button-pair"><button id="toggleButton">Camera On/Off</button><button id="flipButton" aria-pressed="false">Flip 180°</button></div></section>
-    <section class="settings-group"><h2>Frame guides</h2><div class="field-heading"><label for="onionOpacity">Onion skin</label><output id="onionValue" for="onionOpacity">50%</output></div><input id="onionOpacity" type="range" min="0" max="100" value="50"><p class="hint">Blend your last frame over the camera to line up the next move.</p><button id="clockButton" aria-pressed="false">Show clock</button></section>
-    <section class="settings-group"><h2>Playback</h2><div id="speed-container"><div class="field-heading"><label for="playbackSpeed">Frame rate</label><span><output id="fps" for="playbackSpeed">7.0</output> FPS</span></div><input id="playbackSpeed" type="range" min="2" max="12" step="0.5" value="7"></div></section>
+    <div class="live-header" id="liveHeader"><h2>Ready to capture</h2><p class="hint">Move your character. Capture the next pose.</p></div>
+    <section class="settings-group live-capture"><h2>Camera</h2><button id="captureButton" class="primary"><span aria-hidden="true">●</span> Capture frame <kbd>Space</kbd></button><p id="nextFrameHint" class="hint"></p><div id="camera-settings"></div><div class="button-pair"><button id="toggleButton">Camera On/Off</button><button id="flipButton" aria-pressed="false">Flip 180°</button></div></section>
+    <section class="settings-group"><h2>Frame guides</h2><div class="field-heading"><label for="onionOpacity">Onion skin</label><output id="onionValue" for="onionOpacity">50%</output></div><input id="onionOpacity" type="range" min="0" max="100" value="50"><p class="hint">Line up the next move over the previous frame.</p></section>
     <section class="settings-group"><h2>Tools</h2>
       <p id="captureLimit" class="hint"></p><p class="hint">Export: high quality VP8 (0.98). Save Project keeps lossless originals.</p>
-      <button id="loadButton">Import WebM</button><button id="clearButton" class="danger">New / Clear project</button>
+      <button id="clockButton" aria-pressed="false">Show clock</button>
+      <button id="loadButton">Import WebM</button>
     </section>
   </div></aside>
-  <section class="filmstrip" aria-label="Captured frames"><div class="panel-heading"><h2>Frames <span id="frame-count">0</span></h2><div class="panel-heading-right"><output id="capturePending" class="pending-badge" aria-live="polite"></output><output id="duration">0.00 s</output></div></div>
-    <div class="timeline-tools" aria-label="Timeline editing">
-      <button id="liveButton" aria-pressed="true">Live</button><output id="selectionStatus">Live camera</output>
-      <button id="duplicateFrame">Duplicate</button><button id="deleteFrame">Delete</button>
-      <button id="moveLeft">Move left</button><button id="moveRight">Move right</button>
-      <label for="frameHold">Hold</label><input id="frameHold" type="number" min="1" max="120" step="1" value="1" aria-label="Hold exposures">
-      <div class="timeline-zoom" aria-label="Timeline zoom">
-        <button id="zoomOut" aria-label="Zoom out">&minus;</button>
-        <input id="zoomRange" type="range" min="48" max="176" step="8" value="96" aria-label="Thumbnail size">
-        <button id="zoomIn" aria-label="Zoom in">+</button>
+  <section class="filmstrip" aria-label="Captured frames"><div class="panel-heading timeline-heading"><h2>Your animation <span id="frame-count">0</span></h2><output id="selectionStatus">Live camera</output><div class="panel-heading-right"><output id="capturePending" class="pending-badge" aria-live="polite"></output>
+      <div class="timeline-zoom" aria-label="Timeline zoom"><label for="zoomRange">Zoom</label>
+        <button id="zoomOut" aria-label="Zoom out"><span class="zoom-symbol" aria-hidden="true">−</span></button>
+        <input id="zoomRange" type="range" min="48" max="176" step="8" value="136" aria-label="Thumbnail size">
+        <button id="zoomIn" aria-label="Zoom in"><span class="zoom-symbol" aria-hidden="true">+</span></button>
       </div>
       <span class="timeline-goto">
         <label for="goToFrame">Go to frame</label>
         <input id="goToFrame" type="number" min="1" step="1" value="1" aria-label="Go to frame number">
         <button id="goToFrameButton">Go</button>
       </span>
+    </div></div>
+    <div class="timeline-tools" aria-label="Timeline editing">
+      <div class="edit-group" role="group" aria-label="History"><button id="undoButton"><span class="edit-icon" aria-hidden="true">↶</span> Undo</button><button id="redoButton"><span class="edit-icon" aria-hidden="true">↷</span> Redo</button></div>
+      <div class="edit-group" role="group" aria-label="Move frame"><button id="moveLeft"><span class="edit-icon" aria-hidden="true">←</span> Move left</button><button id="moveRight"><span class="edit-icon" aria-hidden="true">→</span> Move right</button></div>
+      <div class="edit-group" role="group" aria-label="Duplicate or delete"><button id="duplicateFrame"><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="3" width="13" height="13" rx="2"/><rect x="3" y="8" width="13" height="13" rx="2"/></svg> Duplicate</button><button id="deleteFrame" class="danger"><svg class="edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 9v9M14 9v9"/></svg> Delete</button></div>
+      <div class="edit-group timeline-hold" role="group" aria-label="Hold exposures"><label for="frameHold">Hold</label><button id="holdDecrease" aria-label="Decrease hold">&minus;</button><input id="frameHold" type="number" min="1" max="120" step="1" value="1" aria-label="Hold exposures"><button id="holdIncrease" aria-label="Increase hold">+</button><span id="holdSummary" class="hint"></span></div>
       <span id="timelineMessage" role="status"></span>
     </div>
-    <div id="thumbnail-container" tabindex="0" aria-label="Frame strip"></div><p class="empty-hint">Your story starts with one frame. Set the scene, then press Capture.</p></section>
+    <div id="thumbnail-container" tabindex="0" aria-label="Frame strip"></div><p class="empty-hint">Your story starts with one frame. Set the scene, then press Capture.</p><p class="timeline-help hint">Hold extends a pose. Duplicate creates another editable frame.</p></section>
 </main>
 <footer>StopMotion <span>Made for small moves and big ideas.</span></footer>
 <div id="dialog-container">
