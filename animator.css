@@ -1312,6 +1312,113 @@ dialog select {
     display: none;
   }
 }
+/* Browser toolbars reduce tablet landscape height: never shrink the camera to
+   satisfy the filmstrip's height. Let the page scroll below a usable workspace. */
+@media (min-width: 901px) and (max-width: 1366px) and (max-height: 800px) and (orientation: landscape) {
+  body {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 8px 12px;
+    gap: 10px;
+  }
+  .brand small,
+  .transport > .hint,
+  .timeline-help,
+  footer {
+    display: none;
+  }
+  .statusbar {
+    grid-column: auto;
+    grid-row: auto;
+    font-size: 11px;
+  }
+  #project-controls {
+    gap: 6px;
+  }
+  #project-controls button {
+    padding-inline: 9px;
+    font-size: 12px;
+  }
+  main {
+    flex: 1 0 auto;
+    padding: 8px 12px 12px;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-rows: clamp(402px, calc(100dvh - 350px), 520px) auto;
+  }
+  .stage-surround {
+    min-height: 340px;
+  }
+  .transport {
+    flex-wrap: nowrap;
+    padding: 6px 10px;
+    gap: 8px;
+    overflow-x: auto;
+  }
+  .transport > * {
+    flex-shrink: 0;
+  }
+  .transport #speed-container {
+    margin-left: 0;
+  }
+  .transport #playbackSpeed {
+    width: 100px;
+  }
+  .live-header,
+  .settings-group {
+    padding: 10px 12px;
+  }
+  .live-header h2 {
+    font-size: 20px;
+  }
+  kbd {
+    display: none;
+  }
+  .filmstrip {
+    width: 100%;
+  }
+  .timeline-heading {
+    padding: 6px 12px;
+    gap: 8px 12px;
+  }
+  .timeline-heading h2 {
+    font-size: 20px;
+  }
+  .timeline-heading .panel-heading-right {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .filmstrip .timeline-tools {
+    min-height: 58px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 6px 10px;
+    scrollbar-width: thin;
+  }
+  .filmstrip .edit-group {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding-right: 8px;
+    margin-right: 4px;
+  }
+  .filmstrip .edit-group button {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  .filmstrip .thumb-track {
+    margin: 8px 12px 2px;
+  }
+  .empty-hint {
+    padding: 12px;
+  }
+}
 @media (max-width: 650px) {
   .topbar {
     grid-template-columns: minmax(0, 1fr);

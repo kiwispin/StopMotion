@@ -64,6 +64,44 @@ test('iPad Mini portrait keeps capture workflow on one screen', async ({page}) =
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1024);
   await page.screenshot({path:path.resolve('test-results/studio-744.png'),fullPage:true});
 });
+test('iPad landscape keeps a large camera with browser bars and after rotation', async ({page}) => {
+  await page.setViewportSize({width:1133,height:600}); await open(page);
+  async function checkCamera() {
+    await page.evaluate(() => scrollTo(0,0));
+    const stage = await page.locator('#video-container').boundingBox();
+    expect(stage.width).toBeGreaterThanOrEqual(600);
+    expect(stage.height).toBeGreaterThanOrEqual(339);
+    expect(stage.y + stage.height).toBeLessThanOrEqual(600);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const selector of ['#captureButton','#playButton']) {
+      expect(await page.locator(selector).evaluate(el => {
+        const r = el.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= innerHeight &&
+          el.contains(document.elementFromPoint(r.x+r.width/2, r.y+r.height/2));
+      })).toBe(true);
+    }
+  }
+  await checkCamera();
+  for (let i=0;i<4;i++) await page.locator('#captureButton').click();
+  await expect(page.locator('#frame-count')).toHaveText('4');
+  await checkCamera();
+  await page.locator('#thumbnail-container canvas').first().click();
+  await expect(page.locator('#selected-frame-panel')).toBeVisible();
+  await page.locator('#duplicateFrame').click();
+  await expect(page.locator('#frame-count')).toHaveText('5');
+  await page.locator('#deleteFrame').click();
+  await expect(page.locator('#frame-count')).toHaveText('4');
+  await page.locator('#liveButton').click();
+  await checkCamera();
+  await page.screenshot({path:path.resolve('test-results/studio-landscape-1133.png'),fullPage:true});
+  await page.setViewportSize({width:744,height:1024});
+  expect((await page.locator('#video-container').boundingBox()).width).toBeGreaterThanOrEqual(710);
+  await page.setViewportSize({width:1133,height:600});
+  await checkCamera();
+  await page.setViewportSize({width:1024,height:600});
+  await checkCamera();
+});
+
 test('onion skin persists and summary tracks delete undo fps and clear', async ({page}) => {
   await open(page);
   await page.locator('#captureButton').click(); await page.locator('#captureButton').click();

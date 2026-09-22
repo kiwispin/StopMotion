@@ -2184,3 +2184,32 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Files: `index.html`, `animator.css`, `tests/e2e/ui.spec.js`, `STOPMOTION_CHANGELOG.md`.
 - Decision: ACCEPTED (code/automated visual review); real iPad Mini confirmation remains
   `PENDING USER TEST`.
+
+### SM-100 - iPad Mini landscape camera size with browser bars
+
+- Owner report: portrait improved, but landscape squeezed the camera into a tiny strip.
+  Reproduced at 1133x600: 16:9 stage 155.547x87.484px; at 1024x600 it collapsed to
+  14.219x7.984px. The fixed-height page gave the wrapping timeline priority over the
+  flexible camera row, and clipped the sidebar's Capture button.
+- Change: a compact landscape breakpoint (901-1366px wide, up to 800px high) reserves
+  at least 340px for the stage surround, places the header on one row, keeps frame-edit
+  controls on a horizontal scroller, and lets the timeline extend below the viewport.
+  Capture and playback stay initially visible. No camera, editing, storage or export
+  JavaScript changed; the accepted portrait layout and larger desktop layout remain.
+- Initial sizing attempt (`SM-100-A`): `minmax(402px, 1fr)` in the auto-height grid
+  expanded the workspace to the sidebar's intrinsic 718.5px, producing a 1,067px page.
+  REFUSED; replaced with bounded viewport-based row sizing, not retained or repeated.
+- Final measurements with four 1280x720 frames: at 1133x600 and 1133x650 the stage is
+  604.438x339.984px (about 15 times the original 1133x600 image area), ending at y=410;
+  Capture ends at y=248; document is 1133x750. Vertical scrolling to the timeline is
+  intentional, instead of shrinking the camera. At 1024x600 the same stage size holds;
+  at 1024x768 it measures 632.875x355.984px and the document fits the viewport.
+- Verification: 14 UI/responsive/mode tests passed, 0 failed, in 13.2s. New regression
+  checks empty/populated landscape, Capture/Play hit-test visibility, duplicate/delete,
+  rotation to portrait and back, 1024x600, and no horizontal page overflow. Existing
+  portrait 744x1024 and desktop/phone tests pass. Reviewed full-page screenshots of live
+  and selected-frame modes. `git diff --check` passed (line-ending notices only).
+- Cache delivery: stylesheet URL is now `animator.css?v=20260922-ipad-landscape`.
+- Files: `animator.css`, `index.html`, `tests/e2e/ui.spec.js`, this log.
+- Decision: ACCEPTED (code/automated visual review). Physical iPad Mini landscape
+  confirmation remains `PENDING USER TEST`; browser emulation is not hardware testing.
