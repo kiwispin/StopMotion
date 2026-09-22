@@ -19,7 +19,8 @@
   <div class="statusbar"><span class="status-dot" aria-hidden="true"></span><p id="project-status" role="status" aria-live="polite"></p></div>
   <nav id="project-controls" aria-label="Project">
     <button id="openProject">Open Project</button><button id="saveProject">Save Project</button><button id="saveButton" class="export-action">Export Video</button><button id="clearButton" class="danger">New / Clear project</button><button id="retrySave" hidden>Retry autosave</button>
-    <input id="projectFile" type="file" accept=".stopmotion,application/json" hidden>
+    <!-- iPad cannot reliably filter our custom extension. Validate file contents in stopProject.parse instead. -->
+    <input id="projectFile" type="file" hidden>
   </nav>
 </header>
 <main id="top-container">

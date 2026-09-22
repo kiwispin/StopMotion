@@ -1,4 +1,5 @@
 import {test, expect} from './fixtures.js';
+import {readFile} from 'node:fs/promises';
 
 test.use({hasTouch: true});
 test.beforeEach(async ({page}) => {
@@ -92,6 +93,42 @@ test('tablet settings, remembered onion, project backup and actual save failure'
   await expect(page.locator('#clearConfirmDialog')).toBeVisible();
   await page.locator('#clearCancelButton').click();
   await expect(page.locator('#frame-count')).toHaveText('1');
+});
+
+test('tablet Open Project accepts downloaded custom files and rejects unrelated files safely', async ({page}) => {
+  await ready(page);
+  await page.locator('#captureButton').click();
+  await expect(page.locator('#frame-count')).toHaveText('1');
+  await page.locator('#lastFrameButton').click();
+  await page.locator('#holdIncrease').click();
+  const snapshot = () => page.evaluate(async () => ({
+    hashes: await Promise.all(main.animator.frames.map(async frame =>
+      Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await frame.png.arrayBuffer()))))),
+    holds: main.animator.holds, fps: main.animator.playbackSpeed
+  }));
+  const original = await snapshot();
+  await page.locator('#tabletProjectButton').click();
+  const downloaded = page.waitForEvent('download');
+  await page.locator('#saveProject').click();
+  const file = await downloaded, buffer = await readFile(await file.path());
+  await page.locator('#tabletProjectButton').click();
+  await page.locator('#clearButton').click(); await page.locator('#clearConfirmButton').click();
+  await expect(page.locator('#frame-count')).toHaveText('0');
+  async function choose(payload) {
+    await page.locator('#tabletProjectButton').click();
+    const choosing = page.waitForEvent('filechooser');
+    await page.locator('#openProject').click();
+    const picker = await choosing;
+    expect(await picker.element().getAttribute('accept')).toBeNull();
+    await picker.setFiles(payload);
+  }
+  // Files providers can report a custom download as generic binary data.
+  await choose({name:file.suggestedFilename(), mimeType:'application/octet-stream', buffer});
+  await expect(page.locator('#project-status')).toHaveText('Saved on this device');
+  expect(await snapshot()).toEqual(original);
+  await choose({name:'not-a-project.txt', mimeType:'text/plain', buffer:Buffer.from('Unrelated file')});
+  await expect(page.locator('#project-status')).toContainText('Current project preserved');
+  expect(await snapshot()).toEqual(original);
 });
 
 test('700 frames stay virtualized, scroll away from selection and survive rotation', async ({page}) => {

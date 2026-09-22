@@ -2378,3 +2378,27 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   changed browser assets match the tested local sources; all four touch layouts
   keep the shutter reachable and image 16:9; live capture and duplicate work;
   zero script errors. Physical iPad confirmation remains the next user check.
+
+### SM-105 - Allow saved projects in the iPad Open Project picker
+
+- Owner reports the downloaded file greyed out specifically in StopMotion's Open
+  Project picker. Its accept filter was `.stopmotion,application/json`, while current
+  downloads are custom binary `.stopmotion` files. WebKit maps filename extensions
+  to known MIME types before filtering; an unrecognized extension can leave only the
+  JSON type allowed. This matches the symptom, but the native picker cannot be
+  reproduced on this Windows host.
+- Change: remove the input's accept attribute, allowing selection of the existing
+  download. The unchanged parser still validates size, signature, metadata, PNG data
+  and dimensions before replacing the current project. No filename migration,
+  resaving, project-format changes, media changes or UI redesign.
+- Verification: 22 project/tablet tests PASSED, 0 failed, in 17.1s. Open Project is
+  exercised through the actual button/filechooser event; tests require an absent
+  accept filter. Download/clear/reopen passes for custom and generic binary MIME
+  types, with exact PNG hashes, holds and frame rate retained. An unrelated text
+  file is rejected with the current project unchanged. Existing recovery, autosave,
+  quota, export, tablet-layout and 700-frame navigation checks pass. Diff check passes.
+- Decision: previous filtered picker REFUSED by the owner's physical-iPad test;
+  removal ACCEPTED by code and automated review, `PENDING USER IPAD CONFIRMATION`.
+  No previous repair attempt repeated. Existing saved downloads should work unchanged.
+- Files: `index.html`, `tests/e2e/project.spec.js`, `tests/e2e/tablet-ui.spec.js`, this log.
+  Deployment continues the approved test-then-publish workflow.

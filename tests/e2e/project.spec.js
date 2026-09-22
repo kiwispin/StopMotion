@@ -47,7 +47,11 @@ test('portable download clear open restores exact frames and settings', async ({
   const file = await download;
   const buffer = await readFile(await file.path());
   await clear(page);
-  await page.locator('#projectFile').setInputFiles({name:'test.stopmotion',mimeType:'application/json',buffer});
+  const choosing = page.waitForEvent('filechooser');
+  await page.locator('#openProject').click();
+  const picker = await choosing;
+  expect(await picker.element().getAttribute('accept')).toBeNull();
+  await picker.setFiles({name:'test.stopmotion',mimeType:'application/x-stopmotion',buffer});
   await expect(page.locator('#project-status')).toHaveText('Saved on this device');
   expect(await state(page)).toEqual(before);
 });
