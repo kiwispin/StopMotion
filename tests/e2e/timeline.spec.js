@@ -309,8 +309,12 @@ test('delayed invalid project locks timeline and preserves selection and history
   await captureColors(page); await select(page, 0);
   const original = await hashes(page), buffer = await download(page);
   await page.evaluate(() => {
+    const nativeCreateImageBitmap = window.createImageBitmap;
     window.createImageBitmap = () => new Promise((resolve, reject) => {
-      window.rejectImage = () => reject(new Error('Delayed invalid image'));
+      window.rejectImage = () => {
+        window.createImageBitmap = nativeCreateImageBitmap;
+        reject(new Error('Delayed invalid image'));
+      };
     });
   });
   await upload(page, buffer);
@@ -320,7 +324,7 @@ test('delayed invalid project locks timeline and preserves selection and history
     await expect(page.locator('#'+id)).toBeDisabled();
   await page.locator('#thumbnail-container canvas').nth(2).dispatchEvent('click');
   await page.locator('#frameHold').evaluate(input => { input.value = 9; input.dispatchEvent(new Event('change')); });
-  expect((await pixels(page)).holds).toEqual([1,1,1]);
+  expect(await page.evaluate(() => main.animator.holds.slice())).toEqual([1,1,1]);
   await page.evaluate(() => rejectImage());
   await expect(page.locator('#project-status')).toContainText('Current project preserved');
   expect(await hashes(page)).toEqual(original);

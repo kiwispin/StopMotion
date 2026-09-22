@@ -6,6 +6,7 @@
 import {test as base, expect} from './fixtures.js';
 import {chromium} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
+import {existsSync} from 'node:fs';
 import {readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 
@@ -52,6 +53,8 @@ test.beforeEach(async ({page}) => {
 });
 
 test('fresh UI export of the saved 700-frame project completes and is timed', async ({page}, testInfo) => {
+  test.skip(!existsSync(BACKUP) || !existsSync(HASHES_PATH),
+    'Run with an existing 700-frame project backup and hashes.');
   test.setTimeout(WINDOW_MS + 15 * 60 * 1000);
 
   expect(await page.evaluate(() => main.animator.frames.length)).toBe(0);

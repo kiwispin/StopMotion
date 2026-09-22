@@ -43,6 +43,7 @@ async function camera(page, width = 1280, height = 720) {
 }
 
 test('700 distinct textured 720p captures recover in order and export with bounded decoded cache', async ({page}, testInfo) => {
+  test.skip(!persistent, 'Run with STOPMOTION_PERSISTENT=1; private storage cannot retain this fixture.');
   // Work scales with 700 real PNG captures + 700 VP8 encodes, not a startup retry.
   test.setTimeout(300000);
   const naturalQuota=await page.evaluate(()=>navigator.storage.estimate());

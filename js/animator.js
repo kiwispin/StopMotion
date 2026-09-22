@@ -492,9 +492,10 @@ var animator = animator || {};
 
     save(filename, options) {
       filename = filename || 'StopMotion';
-      if (!filename.endsWith('.webm'))
-        filename += '.webm';
-      let title = filename.substr(0, filename.length - 5);
+      const format = options?.format === 'mp4' ? 'mp4' : 'webm';
+      const extension = '.' + format;
+      filename = filename.replace(/\.(webm|mp4)$/i, '') + extension;
+      let title = filename.substr(0, filename.length - extension.length);
       return this.encode(title, options).then((blob => {
         this.exported = blob;
         let url = URL.createObjectURL(blob);
@@ -509,6 +510,7 @@ var animator = animator || {};
 
     encode(title, options = {}) {
       const quality = options && Number.isFinite(options.quality) ? options.quality : undefined;
+      const format = options?.format === 'mp4' ? 'mp4' : 'webm';
       const holds = this.frames.map((_, i) => this.holds[i] ?? 1);
       if (!stopTimeline.validHolds(holds, this.frames.length))
         return Promise.reject(new Error('Invalid holds or exposure budget.'));
@@ -522,6 +524,13 @@ var animator = animator || {};
       // changes scheduling: each frame is encoded exactly once, at the same quality.
       const sequence = this.frames.flatMap((frame, i) => Array(holds[i]).fill(frame));
       const total = sequence.length;
+      if (format === 'mp4') {
+        return stopMedia.encodeMp4(sequence, this.w, this.h, this.playbackSpeed, {
+          quality,
+          check,
+          onProgress: update => this.onExportProgress?.(update)
+        }).then(blob => { check(); return blob; });
+      }
       let done = 0;
       this.onExportProgress?.({phase: 'encoding', done: 0, total});
       const limit = Math.max(1, Math.min(8, navigator.hardwareConcurrency || 4));

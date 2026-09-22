@@ -129,18 +129,29 @@ window.addEventListener('load', evt => {
   let exportUnsupported = document.getElementById('exportUnsupported');
   let saveConfirmButton = document.getElementById('saveConfirmButton');
   let saveCancelButtonEl = document.getElementById('saveCancelButton');
-  let exportSupported = null;
+  let exportCapability = null;
+  let exportCapabilityPromise = null;
+  let selectedExport = null;
   let exportRunning = false;
 
-  async function exportIsSupported() {
-    if (exportSupported !== null) return exportSupported;
-    try {
-      const probe = document.createElement('canvas');
-      probe.width = probe.height = 2;
-      const blob = await new Promise(resolve => probe.toBlob(resolve, 'image/webp', 0.9));
-      exportSupported = !!(blob && blob.type === 'image/webp');
-    } catch (error) { exportSupported = false; }
-    return exportSupported;
+  async function detectExportCapability() {
+    if (exportCapability) return exportCapability;
+    if (exportCapabilityPromise) return exportCapabilityPromise;
+    exportCapabilityPromise = (async () => {
+      try {
+        const probe = document.createElement('canvas');
+        probe.width = probe.height = 2;
+        const blob = await new Promise(resolve => probe.toBlob(resolve, 'image/webp', 0.9));
+        if (blob?.type === 'image/webp') {
+          stopMedia.vp8Payload(await blob.arrayBuffer());
+          return {format: 'webm', extension: '.webm', label: 'Export WebM'};
+        }
+      } catch {}
+      if (stopMedia.mp4MimeType())
+        return {format: 'mp4', extension: '.mp4', label: 'Export MP4'};
+      return {format: null, extension: '', label: 'Export unavailable'};
+    })().then(result => (exportCapability = result));
+    return exportCapabilityPromise;
   }
   function openExportDialog() {
     exportSummary.textContent = `${an.w} × ${an.h} · ${an.playbackSpeed.toFixed(1)} fps · ` +
@@ -149,17 +160,22 @@ window.addEventListener('load', evt => {
     exportProgressText.textContent = '';
     exportBarFill.style.width = '0%';
     exportUnsupported.hidden = true;
-    saveConfirmButton.textContent = 'Export WebM';
-    saveConfirmButton.disabled = false;
+    selectedExport = null;
+    saveConfirmButton.textContent = 'Checking export…';
+    saveConfirmButton.disabled = true;
     saveConfirmButton.onclick = () => saveCB();
     saveCancelButtonEl.disabled = false;
     saveDialog.showModal();
-    exportIsSupported().then(supported => {
-      exportUnsupported.hidden = supported;
+    detectExportCapability().then(capability => {
+      if (!saveDialog.open || exportRunning) return;
+      selectedExport = capability;
+      exportUnsupported.hidden = !!capability.format;
+      saveConfirmButton.textContent = capability.label;
+      saveConfirmButton.disabled = !capability.format;
     });
   }
   let saveCB = () => {
-    if (exportRunning || an.projectBusy || an.loadInProgress || !an.frames.length) return;
+    if (exportRunning || an.projectBusy || an.loadInProgress || !an.frames.length || !selectedExport?.format) return;
     let value = fileNameInput.value;
     if (!value.length)
       value = 'StopMotion';
@@ -167,8 +183,7 @@ window.addEventListener('load', evt => {
     value = value.replace(/[^\w\-\.]+/g, '');
     if (value.endsWith('.mng'))
       value = value.substring(0, value.length - 4);
-    if (!value.endsWith('.webm'))
-      value += '.webm';
+    value = value.replace(/\.(webm|mp4)$/i, '') + selectedExport.extension;
     exportRunning = true;
     saveConfirmButton.disabled = true;
     saveCancelButtonEl.disabled = true;
@@ -187,14 +202,15 @@ window.addEventListener('load', evt => {
     };
     an.onExportProgress = ({phase, done, total}) => {
       exportProgressText.textContent = phase === 'finishing'
-        ? 'Finishing the movie…' : `Encoding frame ${done} of ${total}`;
+        ? 'Finishing the movie…' : phase === 'recording'
+          ? `Creating MP4 frame ${done} of ${total}` : `Encoding frame ${done} of ${total}`;
       exportBarFill.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
     };
-    an.save(value, {quality: Number(qualitySelect.value)}).then(() => {
+    an.save(value, {quality: Number(qualitySelect.value), format: selectedExport.format}).then(() => {
       an.onExportProgress = null;
       finish();
       exportBarFill.style.width = '100%';
-      exportProgressText.textContent = 'Your movie is downloading. Play it in VLC or your browser; add music in Canva.';
+      exportProgressText.textContent = 'Your movie is downloading. Play it on this device, in VLC or in your browser; add music in Canva.';
       saveConfirmButton.textContent = 'Done';
       saveConfirmButton.disabled = false;
       saveConfirmButton.onclick = () => saveDialog.close();
@@ -204,7 +220,7 @@ window.addEventListener('load', evt => {
       exportProgress.hidden = true;
       document.getElementById('timelineMessage').textContent = 'Export failed: ' + (err.message || err);
       saveDialog.close();
-      saveConfirmButton.textContent = 'Export WebM';
+      saveConfirmButton.textContent = selectedExport?.label || 'Export Video';
       saveConfirmButton.disabled = false;
       saveConfirmButton.onclick = () => saveCB();
     });

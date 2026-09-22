@@ -2,6 +2,7 @@
 // project frames: PNG decode/draw, quality-0.98 WebP encode, and concurrency
 // scaling. No product source changes; no autosave written.
 import {test, expect} from './fixtures.js';
+import {existsSync} from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_BACKUP = path.join(process.cwd(), 'test-results', 'large-project-persistent',
@@ -20,6 +21,7 @@ test.beforeEach(async ({page}) => {
 });
 
 test('encode-path profile and concurrency scaling', async ({page}, testInfo) => {
+  test.skip(!existsSync(BACKUP), 'Run with an existing 700-frame project backup.');
   test.setTimeout(300000);
   const openStart = Date.now();
   await page.locator('#projectFile').setInputFiles(BACKUP);

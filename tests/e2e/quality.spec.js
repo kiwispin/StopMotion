@@ -224,7 +224,7 @@ test('native decoded detail quality improves and fresh/recovered/open encodings 
   expect(await page.evaluate(async () => [...new Uint8Array(await crypto.subtle.digest('SHA-256',await (await stopMedia.encodeFrame(main.animator.frames[0])).arrayBuffer()))].join(','))).toEqual(encoded);
 });
 
-test('valid PNG recovery and Open work when optional video encoder fails', async ({page}) => {
+test('valid PNG recovery and Open fall back to MP4 when WebP encoding is unavailable', async ({page}) => {
   await open(page); await camera(page,640,480); await page.locator('#captureButton').click();
   const buffer = await download(page);
   await page.evaluate(() => main.project.flushed());
@@ -240,8 +240,13 @@ test('valid PNG recovery and Open work when optional video encoder fails', async
   await expect(page.locator('#project-status')).toHaveText('Recovered saved project');
   await clear(page); await upload(page,buffer);
   await expect(page.locator('#frame-count')).toHaveText('1');
-  await page.locator('#saveButton').click(); await page.locator('#saveConfirmButton').click();
-  await expect(page.locator('#timelineMessage')).toContainText('WebP encoding failed');
+  await page.locator('#saveButton').click();
+  await expect(page.locator('#saveConfirmButton')).toHaveText('Export MP4');
+  const movie = page.waitForEvent('download');
+  await page.locator('#saveConfirmButton').click();
+  expect((await movie).suggestedFilename()).toBe('StopMotion.mp4');
+  await expect(page.locator('#saveConfirmButton')).toHaveText('Done');
+  await page.locator('#saveConfirmButton').click();
   const backup = await download(page);
   expect(asLegacyProject(backup).frames[0]).toBe(asLegacyProject(buffer).frames[0]);
 });

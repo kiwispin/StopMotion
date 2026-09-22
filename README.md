@@ -43,8 +43,10 @@ Run the Chromium simulated-camera tests with `npm run test:e2e`.
   Open Project restores that editable project. New saves use binary v2 (bounded
   JSON metadata followed by unmodified PNG blobs, without base64). Existing
   v1 JSON projects still open. Keep downloaded backups.
-- Export Video creates a WebM for viewing/sharing. Import WebM is the legacy video
-  importer, not a lossless project backup or a substitute for Open Project.
+- Export Video automatically creates a WebM where the browser has a usable WebP/VP8
+  encoder, or an H.264 MP4 where WebM encoding is unavailable (including Safari/iPad).
+  Import WebM is the legacy video importer, not a lossless project backup or a
+  substitute for Open Project. MP4 is export-only.
 - Autosave uses browser IndexedDB on this origin. Check the saving/saved/error status;
   retry failed saves or download a project backup. Changing host/port/browser uses
   separate storage; clearing browser data can remove autosaves.
@@ -89,8 +91,20 @@ pixels per axis and 16 MiPixels. Browser storage quotas may be lower than these 
 WebM export uses explicit high-quality **WebP/VP8 quality 0.98**, directly from the
 lossless originals. Recovered/Open projects use the same encoder from lossless PNG
 originals. Quality 1 can produce VP8L, which this VP8 video muxer cannot use; unsupported
-or failed encoders report an export error rather than hanging. PNG project recovery,
-Open and Save Project remain available even without a functioning video encoder.
+or failed WebP encoders automatically fall back to H.264 MP4 when the browser exposes
+MP4 `MediaRecorder` and canvas capture. MP4 creation runs in real time, so a 30-second
+animation takes about 30 seconds to export. If neither encoder is available the export
+dialog says so instead of starting. PNG project recovery, Open and Save Project remain
+available even without a functioning video encoder.
+
+The MP4 path draws each exposure from the same lossless PNG originals, honours Hold and
+FPS, and repeats the final image once to preserve the tail of short movies. A measured
+700-frame 1280×720 export at 24 fps produced H.264 MP4 with 701 packets, 29.3622 seconds
+for an intended 29.1667 seconds (0.67% difference), 7,221,007 bytes, and completed in
+29.552 seconds after the frames were prepared. A six-exposure 640×480 fixture preserved
+the expected red/green/green/blue/blue/blue sequence. These are Chromium measurements;
+a real-iPad playback/export check remains required because native encoder behaviour is
+owned by the device/browser.
 
 On the deterministic 1280×720 test fixture (texture, gradients, colored edges and text),
 native Chromium WebM decoding measured the following RGB absolute error (0–255):
@@ -132,8 +146,9 @@ aggregate size and exact file end before sequential PNG validation. Legacy v1 JS
 and WebM imports remain capped at 512 MiB because those readers load their full input.
 Storage quotas and available disk space vary; keep regular backups. Legacy WebM import/timeline
 integrity and broader browser coverage remain work in progress. Automated tests use
-Chromium simulated cameras; physical cameras and permissions still need testing on
-the intended device. Desktop settings scroll internally; narrow screens scroll normally.
+Chromium simulated cameras; physical cameras, permissions and the native MP4 encoder
+still need testing on the intended iPad. Desktop settings scroll internally; narrow
+screens scroll normally.
 
 ## Attribution and license
 

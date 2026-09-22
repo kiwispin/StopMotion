@@ -71,7 +71,7 @@ test('thumbnail reuse keeps duplicate nodes distinct and colors correct through 
   await capture(page);
   const before=await page.evaluate(()=>({...metrics}));
   const pixels=()=>page.evaluate(()=>[...document.querySelectorAll('#thumbnail-container canvas')]
-    .map(c=>[...c.thumbnail.getContext('2d').getImageData(48,36,1,1).data].slice(0,3)));
+    .map(c=>[...c.getContext('2d').getImageData(48,36,1,1).data].slice(0,3)));
   await page.locator('#thumbnail-container canvas').first().click();
   await page.locator('#duplicateFrame').click();
   expect(await pixels()).toEqual([[255,0,0],[255,0,0],[0,255,0],[0,0,255]]);
