@@ -30,9 +30,14 @@ window.addEventListener('load', evt => {
     document.getElementById('flipButton').setAttribute('aria-pressed', an._flip);
     const actual = an.streamOn && video.readyState >= 2 ? `${video.videoWidth}×${video.videoHeight}` : 'waiting';
     if (an.streamOn && video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+      const cropPortrait = video.videoHeight > video.videoWidth && an.w > an.h;
       const scale = Math.min(1, an.w / video.videoWidth, an.h / video.videoHeight);
-      const width = video.videoWidth * scale / an.w * 100;
-      const height = video.videoHeight * scale / an.h * 100;
+      // Existing portrait projects fit inside a landscape stage without changing
+      // their saved pixels. Live framing must match the capture, not stretch it.
+      const stageWidth = an.w < an.h ? an.h * 16 / 9 : an.w;
+      const width = (cropPortrait ? an.w : video.videoWidth * scale) / stageWidth * 100;
+      const height = (cropPortrait ? an.h : video.videoHeight * scale) / an.h * 100;
+      video.style.objectFit = cropPortrait ? 'cover' : 'contain';
       video.style.width = width + '%'; video.style.height = height + '%';
       video.style.left = (100 - width) / 2 + '%'; video.style.top = (100 - height) / 2 + '%';
     }
@@ -227,6 +232,14 @@ window.addEventListener('load', evt => {
   };
 
   let captureButton = document.getElementById('captureButton');
+  const captureHome = captureButton.previousElementSibling;
+  const landscapeWorkspace = matchMedia('(min-width: 901px) and (max-width: 1366px) and (max-height: 800px) and (orientation: landscape)');
+  const placeCapture = () => {
+    if (landscapeWorkspace.matches) document.querySelector('.transport').prepend(captureButton);
+    else captureHome.after(captureButton);
+  };
+  landscapeWorkspace.addEventListener('change', placeCapture);
+  placeCapture();
   let undoButton = document.getElementById('undoButton');
   let clearConfirmDialog = document.getElementById('clearConfirmDialog');
   window.addEventListener("keydown", (e => {

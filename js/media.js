@@ -173,5 +173,13 @@ window.stopMedia = (() => {
     context.fillStyle = '#000'; context.fillRect(0, 0, width, height);
     context.drawImage(source, (width - sw * scale) / 2, (height - sh * scale) / 2, sw * scale, sh * scale);
   }
-  return {quality, encodeFrame, encodeMp4, mp4MimeType, cacheStats, lazyFrame, vp8Payload, drawContained};
+  function drawCamera(context, source, width, height) {
+    const sw = source.videoWidth, sh = source.videoHeight;
+    if (sh > sw && width > height) {
+      // The same centered landscape window shown by the live preview's cover fit.
+      const cropHeight = sw * height / width;
+      context.drawImage(source, 0, (sh - cropHeight) / 2, sw, cropHeight, 0, 0, width, height);
+    } else drawContained(context, source, width, height, true);
+  }
+  return {quality, encodeFrame, encodeMp4, mp4MimeType, cacheStats, lazyFrame, vp8Payload, drawContained, drawCamera};
 })();

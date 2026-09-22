@@ -286,10 +286,106 @@ for (const [width,height] of [[1024,768],[390,844]]) {
     const box = await page.locator('#video-container').boundingBox();
     expect(Math.abs(box.width/box.height - 16/9)).toBeLessThan(0.01);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    if(width===1024) {
-      const row=await page.locator('#thumbnail-container').boundingBox();
-      expect(row.y+row.height).toBeLessThanOrEqual(height);
-    }
+    if(width===1024) expect(box.width).toBeGreaterThanOrEqual(850);
     await page.screenshot({path:path.resolve(`test-results/hd-${width}.png`),fullPage:true});
   });
 }
+
+test('portrait camera stays landscape without stretching live, captured or reviewed image', async ({page}) => {
+  test.setTimeout(30000);
+  await page.setViewportSize({width:744,height:1024}); await open(page);
+  await camera(page,720,1280);
+  expect((await dimensions(page)).project).toEqual([720,405]);
+  await page.evaluate(async () => {
+    const ctx = cameraCanvas.getContext('2d');
+    ctx.fillStyle = '#0000ff'; ctx.fillRect(0,0,720,1280);
+    ctx.fillStyle = '#ff0000'; ctx.fillRect(0,400,720,480);
+    ctx.fillStyle = '#00ff00'; ctx.beginPath(); ctx.arc(360,640,90,0,2*Math.PI); ctx.fill();
+    await new Promise(resolve => {
+      main.animator.video.requestVideoFrameCallback(resolve);
+      main.animator.videoStream.getVideoTracks()[0].requestFrame();
+    });
+  });
+  const stage = page.locator('#video-container');
+  const box = await stage.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(710);
+  expect(box.width/box.height).toBeCloseTo(16/9,2);
+  await expect(page.locator('#video')).toHaveCSS('object-fit','cover');
+  const preview = (await stage.screenshot()).toString('base64');
+  const previewCircle = await page.evaluate(async base64 => {
+    const blob = await (await fetch('data:image/png;base64,'+base64)).blob();
+    const image = await createImageBitmap(blob);
+    const c = document.createElement('canvas'); c.width=image.width;c.height=image.height;
+    const ctx=c.getContext('2d');ctx.drawImage(image,0,0);image.close();
+    const pixels=ctx.getImageData(0,0,c.width,c.height).data;
+    let left=c.width,right=0,top=c.height,bottom=0;
+    for(let y=0;y<c.height;y++) for(let x=0;x<c.width;x++) {
+      const i=(y*c.width+x)*4;
+      if(pixels[i]<40 && pixels[i+1]>200 && pixels[i+2]<40) {
+        left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+      }
+    }
+    return {width:right-left+1,height:bottom-top+1};
+  },preview);
+  expect(previewCircle.width).toBeGreaterThan(170);
+  expect(Math.abs(previewCircle.width-previewCircle.height)).toBeLessThanOrEqual(2);
+  await page.locator('#captureButton').click();
+  await expect.poll(() => page.evaluate(() => main.animator.captureBusy)).toBe(false);
+  const saved = await page.evaluate(async () => {
+    const c=await testFrameCanvas(main.animator.frames[0]),ctx=c.getContext('2d');
+    const green=(x,y)=>{const p=ctx.getImageData(x,y,1,1).data;return p[0]<40 && p[1]>200 && p[2]<40;};
+    return {size:[c.width,c.height],corner:[...ctx.getImageData(10,10,1,1).data],
+      circleWidth:Array.from({length:c.width},(_,x)=>green(x,202)).filter(Boolean).length,
+      circleHeight:Array.from({length:c.height},(_,y)=>green(360,y)).filter(Boolean).length};
+  });
+  expect(saved.size).toEqual([720,405]);
+  expect(saved.corner[0]).toBeGreaterThan(240); expect(saved.corner[2]).toBeLessThan(10);
+  expect(saved.circleWidth).toBeGreaterThan(175);
+  expect(Math.abs(saved.circleWidth-saved.circleHeight)).toBeLessThanOrEqual(2);
+  const movies = await page.evaluate(async () => {
+    const an=main.animator, results=[];
+    an.holds[0]=6; an.setPlaybackSpeed(6);
+    for (const format of ['webm','mp4']) {
+      const blob=await an.encode('portrait-camera',{format});
+      const v=document.createElement('video'),url=URL.createObjectURL(blob);
+      try {
+        await new Promise((resolve,reject)=>{v.onloadeddata=resolve;v.onerror=()=>reject(new Error('Cannot decode '+format));v.src=url;});
+        results.push({format,width:v.videoWidth,height:v.videoHeight,bytes:blob.size});
+      } finally { v.removeAttribute('src');v.load();URL.revokeObjectURL(url); }
+    }
+    return results;
+  });
+  for(const movie of movies) {
+    expect([movie.width,movie.height]).toEqual(saved.size);
+    expect(movie.bytes).toBeGreaterThan(0);
+  }
+  await page.locator('#thumbnail-container canvas').first().click();
+  await page.evaluate(() => scrollTo(0,0));
+  expect((await stage.boundingBox()).width/(await stage.boundingBox()).height).toBeCloseTo(16/9,2);
+  await page.screenshot({path:path.resolve('test-results/portrait-camera-circle.png'),fullPage:true});
+  await page.setViewportSize({width:1133,height:600}); await camera(page,1280,720);
+  expect((await dimensions(page)).project).toEqual([720,405]);
+  await page.locator('#liveButton').click();
+  await page.locator('#captureButton').click();
+  await expect(page.locator('#frame-count')).toHaveText('2');
+  console.log('PORTRAIT CAMERA '+JSON.stringify({stage:{width:box.width,height:box.height},previewCircle,saved,movies}));
+});
+
+test('existing portrait frames retain their dimensions inside a landscape stage', async ({page}) => {
+  await page.setViewportSize({width:744,height:1024}); await open(page);
+  await page.evaluate(async () => {
+    const an=main.animator,c=document.createElement('canvas');c.width=720;c.height=1280;
+    c.getContext('2d').fillRect(0,0,720,1280);
+    window.originalPortraitFrame=await stopFrames.fromCanvas(c);
+    an.frames=[originalPortraitFrame];an.holds=[1];an.frameWebps=[stopMedia.lazyFrame(originalPortraitFrame)];
+    an.dimensionsLocked=true;an.setDimensions(720,1280);an.timeline.reset();
+  });
+  for(const [width,height] of [[744,1024],[1133,600],[744,1024]]) {
+    await page.setViewportSize({width,height});
+    const stage=await page.locator('#video-container').boundingBox();
+    expect(stage.width/stage.height).toBeCloseTo(16/9,2);
+    expect((await dimensions(page)).project).toEqual([720,1280]);
+    expect(await page.evaluate(()=>main.animator.frames[0]===originalPortraitFrame)).toBe(true);
+    await expect(page.locator('#play-canvas')).toHaveCSS('object-fit','contain');
+  }
+});

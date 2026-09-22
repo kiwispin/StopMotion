@@ -133,7 +133,7 @@ var animator = animator || {};
       this.snapshotCanvas.height = this.h;
       this.playCanvas.width = w;
       this.playCanvas.height = h;
-      this.video.parentElement?.style.setProperty('--stage-ratio', w / h);
+      this.video.parentElement?.style.setProperty('--stage-ratio', w < h ? 16 / 9 : w / h);
       this.refreshSummary?.();
     }
 
@@ -143,9 +143,12 @@ var animator = animator || {};
       const settings = this.videoStream?.getVideoTracks()[0]?.getSettings?.();
       // Ignore obsolete metadata while a newly attached stream is still loading.
       if (!w || !h || (settings?.width && settings.width !== w) || (settings?.height && settings.height !== h)) return;
+      // An upright tablet may report a portrait stream. New animations still
+      // use a landscape crop, at the source's real width (no invented HD detail).
+      const projectHeight = h > w ? Math.round(w * 9 / 16) : h;
       if (!this.projectBusy && !this.loadInProgress && !this.dimensionsLocked && !this.frames.length &&
-          w <= 4096 && h <= 4096 && (w !== this.w || h !== this.h)) {
-        this.setDimensions(w, h);
+          w <= 4096 && h <= 4096 && (w !== this.w || projectHeight !== this.h)) {
+        this.setDimensions(w, projectHeight);
         if (notify) this.onProjectChange?.();
       }
       this.refreshSummary?.();
@@ -291,7 +294,7 @@ var animator = animator || {};
         context.translate(-this.w, -this.h);
       }
       try {
-        stopMedia.drawContained(context, this.video, this.w, this.h, true);
+        stopMedia.drawCamera(context, this.video, this.w, this.h);
       } catch (error) {
         imageCanvas.width = imageCanvas.height = 0;
         return null;

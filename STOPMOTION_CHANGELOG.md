@@ -2213,3 +2213,43 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Files: `animator.css`, `index.html`, `tests/e2e/ui.spec.js`, this log.
 - Decision: ACCEPTED (code/automated visual review). Physical iPad Mini landscape
   confirmation remains `PENDING USER TEST`; browser emulation is not hardware testing.
+
+### SM-101 - Camera-first landscape workspace and proportional portrait framing
+
+- Owner decision on SM-100: REFUSED. Its 604x340 image was still too small. SM-099's
+  landscape-input-only portrait check also missed a real portrait camera feed. Those
+  sizing assumptions are superseded here, not repeated as proposed fixes.
+- Landscape change: reserve the viewport-height workspace for the image and a 144px
+  Capture/Play rail; timeline and secondary settings follow below. Move the existing
+  Capture button between its original location and the rail on breakpoint changes,
+  preserving its handlers/state. Do not duplicate capture controls. Desktop outside
+  the tablet breakpoint retains its layout.
+- Measured at 1133x600: image 920.875x517.984px, ending at y=587.984; Capture is fully
+  visible at y=82-134. Image area is 2.32 times SM-100's 604.438x339.984. At 1133x744,
+  image is 963x541.688; at 1024x600, 854x480.375. No horizontal page overflow. Timeline
+  intentionally begins below the initial landscape viewport, not at the camera's expense.
+- Portrait framing: camera metadata previously allowed a tall source to make the
+  stage tall. New tall-source captures now use a centered landscape window, with the
+  source's native width and a nominal 16:9 height. The live cover-fit preview and PNG
+  capture use the same crop, never nonuniform scaling. Existing landscape-source
+  contain/no-upscale behaviour remains unchanged. Existing portrait projects keep
+  their original frames/dimensions and fit proportionally inside a landscape stage.
+- Actual portrait-stream fixture: 720x1280 camera -> 720x405 PNG; at 744x1024 viewport
+  the stage is 718x403.875. A circular target measures 178x178 in the live screenshot
+  and 180x179 pixels in the saved PNG (raster edge tolerance, not stretching). Top and
+  bottom source areas are intentionally cropped; capture framing matches the preview.
+- Export checks on that captured portrait-source image: native WebM decode 720x405,
+  51,936 bytes; native MP4 decode 720x405, 4,727 bytes. Rotation after capture keeps
+  project dimensions locked. Existing portrait-frame identity/dimensions survive
+  portrait -> landscape -> portrait layout changes without rewriting the originals.
+- Verification: 37 passed / 0 failed / 1 optional 700-frame MP4 test skipped in 20.1s,
+  covering UI, modes, quality, camera lifecycle, capture queue and short MP4 export.
+  Reviewed landscape and portrait screenshots; `git diff --check` passes. Updated
+  prior tests that required all timeline thumbnails above the fold: that layout
+  requirement conflicts with the owner's camera-first priority.
+- Cache delivery: versions stylesheet and changed media/animator/main scripts with
+  `20260922-camera-first` so the deployed page requests the matching set of assets.
+- Files: `animator.css`, `index.html`, `js/animator.js`, `js/main.js`, `js/media.js`,
+  `tests/e2e/ui.spec.js`, `tests/e2e/quality.spec.js`, this log.
+- Decision: ACCEPTED in automated/code review; physical iPad/browser confirmation
+  remains `PENDING USER TEST`. No claim of testing an actual iPad on this Windows host.
