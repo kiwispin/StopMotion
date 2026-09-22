@@ -1132,6 +1132,186 @@ dialog select {
     padding: 8px;
   }
 }
+@media (min-width: 651px) and (max-width: 900px) and (orientation: portrait) {
+  .topbar {
+    padding: 8px 12px;
+    gap: 6px 12px;
+  }
+  .brand small {
+    display: none;
+  }
+  #project-controls {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  #project-controls button {
+    min-height: 40px;
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  .statusbar {
+    font-size: 11px;
+  }
+  main {
+    padding: 8px 12px 12px;
+    gap: 8px;
+  }
+  #video-column {
+    position: relative;
+  }
+  #video-column > .panel-heading {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    z-index: 6;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: #151615df;
+    pointer-events: none;
+  }
+  #video-column > .panel-heading h2 {
+    display: none;
+  }
+  .stage-surround {
+    padding: 0;
+  }
+  #video-container {
+    width: 100%;
+    border-radius: 0;
+  }
+  .transport {
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: 60px;
+    padding: 6px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .transport::-webkit-scrollbar {
+    display: none;
+  }
+  .transport > .hint {
+    display: none;
+  }
+  .transport #speed-container {
+    flex: 1 1 auto;
+    margin-left: 0;
+  }
+  .transport #playbackSpeed {
+    width: min(130px, 18vw);
+  }
+  #control-column {
+    order: 1;
+  }
+  .filmstrip {
+    order: 2;
+    width: 100%;
+  }
+  #button-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  #button-container .live-header {
+    display: none;
+  }
+  #button-container .settings-group {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  #button-container .settings-group > .hint {
+    display: none;
+  }
+  #button-container .settings-group:last-child {
+    grid-column: auto;
+    display: grid;
+    align-content: start;
+    gap: 6px;
+  }
+  #button-container .settings-group:last-child h2 {
+    margin-right: 0;
+  }
+  #button-container .settings-group:last-child button {
+    width: 100%;
+  }
+  .timeline-heading {
+    min-height: 58px;
+    padding: 6px 12px;
+    gap: 8px 12px;
+    flex-wrap: nowrap;
+  }
+  .timeline-heading h2 {
+    font-size: 20px;
+    white-space: nowrap;
+  }
+  .timeline-heading #selectionStatus,
+  .timeline-heading .timeline-zoom > label,
+  .timeline-heading .timeline-goto > label {
+    display: none;
+  }
+  .timeline-heading .panel-heading-right {
+    width: auto;
+    margin-left: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .timeline-heading .timeline-goto {
+    padding-left: 8px;
+  }
+  .filmstrip .timeline-zoom input {
+    width: 110px;
+  }
+  .filmstrip .timeline-tools {
+    min-height: 60px;
+    padding: 6px 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .filmstrip .edit-group {
+    flex: 0 0 auto;
+    gap: 4px;
+    padding-right: 8px;
+    margin-right: 4px;
+  }
+  .filmstrip .edit-group button {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+  .filmstrip .thumb-track {
+    margin: 8px 12px 2px;
+  }
+  .timeline-help {
+    display: none;
+  }
+  #control-column:has(#selected-frame-panel:not([hidden])) #button-container {
+    display: none;
+  }
+  #selected-frame-panel:not([hidden]) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  #selected-frame-panel .field-heading {
+    grid-column: 2 / 4;
+  }
+  #selected-frame-panel .hold-stepper,
+  #selected-frame-panel > .hint {
+    display: none;
+  }
+  #selected-frame-panel .button-pair {
+    display: contents;
+  }
+  #selected-frame-panel button {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 6px;
+  }
+  footer {
+    display: none;
+  }
+}
 @media (max-width: 650px) {
   .topbar {
     grid-template-columns: minmax(0, 1fr);

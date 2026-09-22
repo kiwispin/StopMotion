@@ -2154,3 +2154,31 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
 - Remaining hardware gate: real iPad Safari capture/export/playback has not been run on
   this Windows host. The source change is ACCEPTED; physical-iPad certification is
   `PENDING USER TEST`.
+
+### SM-099 - iPad Mini portrait capture-first layout
+
+- Owner hardware report: iPad Mini 6th generation portrait camera view felt tiny and
+  the page was too long. The accepted desktop/landscape/phone layouts remain unchanged;
+  this revision is scoped to 651-900px portrait viewports.
+- Reproduced baseline at 744x1133: page height 1,594px; stage 694x390.375px; timeline
+  413.5px high appeared before the camera controls; the control panel began at y=1,100.875,
+  so Capture was below the initial viewport.
+- Change: portrait iPad now uses camera -> contextual capture/edit controls -> timeline.
+  The Studio heading overlays the stage; transport stays on one compact row; live Camera,
+  Frame guides and Tools form three touch-safe columns; review controls replace rather
+  than stack on live controls; timeline tools form one horizontal scroller; secondary
+  labels/helper copy collapse; footer is omitted at this breakpoint.
+- Initial two-column compact-control revision (`SM-099-A`) reduced the 744x1133 page to
+  one screen, but still measured 1,095px at a shorter 744x1024 Safari viewport. REFUSED
+  and replaced by the three-column/control-context revision; it was not retained.
+- Final measured live layout at 744x1024: document 744x1024 (no horizontal or vertical
+  page overflow); stage 718x403.875; Capture y=601.375 to 653.375; controls end y=734.375;
+  timeline y=742.375 to 1,002.375. Review mode also remains 744x1024, with its contextual
+  panel ending y=708.875 and timeline ending y=976.875.
+- Verification: responsive, mode, export and quality/layout suites 22 passed / 0 failed
+  in 16.6s. Added an explicit iPad Mini portrait contract for one-screen live and review
+  composition, stage size, Capture reachability and panel ordering. `git diff --check`
+  passed apart from existing line-ending notices.
+- Files: `animator.css`, `tests/e2e/ui.spec.js`, `STOPMOTION_CHANGELOG.md`.
+- Decision: ACCEPTED (code/automated visual review); real iPad Mini confirmation remains
+  `PENDING USER TEST`.

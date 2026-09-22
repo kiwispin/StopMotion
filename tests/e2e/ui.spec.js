@@ -42,6 +42,28 @@ for (const [width,height] of [[1440,900],[1024,768],[768,1024],[390,844]]) {
     await page.screenshot({path:path.resolve('test-results/studio-'+width+'.png'),fullPage:true});
   });
 }
+test('iPad Mini portrait keeps capture workflow on one screen', async ({page}) => {
+  await page.setViewportSize({width:744,height:1024}); await open(page);
+  for (let i=0;i<4;i++) await page.locator('#captureButton').click();
+  const live = await page.evaluate(() => {
+    const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
+    return {scrollWidth:document.documentElement.scrollWidth,
+      scrollHeight:document.documentElement.scrollHeight,
+      stage:rect('#video-container'), controls:rect('#control-column'),
+      capture:rect('#captureButton'), filmstrip:rect('.filmstrip')};
+  });
+  expect(live.scrollWidth).toBeLessThanOrEqual(744);
+  expect(live.scrollHeight).toBeLessThanOrEqual(1024);
+  expect(live.stage.width).toBeGreaterThanOrEqual(710);
+  expect(live.stage.height).toBeGreaterThanOrEqual(399);
+  expect(live.capture.bottom).toBeLessThanOrEqual(1024);
+  expect(live.controls.bottom).toBeLessThan(live.filmstrip.top);
+  await page.locator('#thumbnail-container canvas').first().click();
+  await expect(page.locator('#selected-frame-panel')).toBeVisible();
+  await expect(page.locator('#button-container')).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1024);
+  await page.screenshot({path:path.resolve('test-results/studio-744.png'),fullPage:true});
+});
 test('onion skin persists and summary tracks delete undo fps and clear', async ({page}) => {
   await open(page);
   await page.locator('#captureButton').click(); await page.locator('#captureButton').click();
