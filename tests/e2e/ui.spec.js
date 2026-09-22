@@ -30,10 +30,16 @@ for (const [width,height] of [[1440,900],[1024,768],[768,1024],[390,844]]) {
       expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(height);
     }
     for (const id of ['captureButton','playButton','saveProject','openProject','clearButton','onionOpacity']) {
+      if (width === 768) {
+        if (['saveProject','openProject','clearButton'].includes(id)) await page.locator('#tabletProjectButton').click();
+        if (id === 'onionOpacity') await page.locator('#tabletSettingsButton').click();
+      }
       const control = page.locator('#'+id); await control.scrollIntoViewIfNeeded();
       const box = await control.boundingBox();
       expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x+box.width).toBeLessThanOrEqual(width);
+      if (width === 768) await page.keyboard.press('Escape');
     }
+    if (width === 768) await page.locator('#tabletProjectButton').click();
     await page.locator('#clearButton').click();
     await expect(page.getByRole('dialog', {name:'Start a new animation?'})).toBeVisible();
     await page.locator('#clearCancelButton').click();
@@ -49,7 +55,7 @@ test('iPad Mini portrait keeps capture workflow on one screen', async ({page}) =
     const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
     return {scrollWidth:document.documentElement.scrollWidth,
       scrollHeight:document.documentElement.scrollHeight,
-      stage:rect('#video-container'), controls:rect('#control-column'),
+      stage:rect('#video-container'), controls:rect('#tabletCaptureControls'),
       capture:rect('#captureButton'), filmstrip:rect('.filmstrip')};
   });
   expect(live.scrollWidth).toBeLessThanOrEqual(744);
@@ -59,7 +65,8 @@ test('iPad Mini portrait keeps capture workflow on one screen', async ({page}) =
   expect(live.capture.bottom).toBeLessThanOrEqual(1024);
   expect(live.controls.bottom).toBeLessThan(live.filmstrip.top);
   await page.locator('#thumbnail-container canvas').first().click();
-  await expect(page.locator('#selected-frame-panel')).toBeVisible();
+  await expect(page.locator('#editMode')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.timeline-tools')).toBeVisible();
   await expect(page.locator('#button-container')).toBeHidden();
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(1024);
   await page.screenshot({path:path.resolve('test-results/studio-744.png'),fullPage:true});

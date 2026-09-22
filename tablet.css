@@ -1,0 +1,144 @@
+/* Approved camera-first tablet presentation. Desktop/phone styling stays intact. */
+.tablet-only, body:not(.tablet-studio) #tabletShutter { display: none; }
+body.tablet-studio {
+  --bg: #141817; --bg2: #202622; --bg3: #303a33; --text: #eff5ed;
+  --text2: #acbbae; --text3: #acbbae; --border: #3c4940;
+  height: 100dvh; min-height: 0; overflow: hidden;
+  display: flex; flex-direction: column; background: var(--bg);
+}
+.tablet-studio button { font-size: 13px; border-radius: 12px; }
+.tablet-studio > .topbar, .tablet-studio > footer { display: none; }
+.tablet-studio #tabletHeader {
+  display: flex; height: 52px; flex: none; align-items: center;
+  justify-content: space-between; padding: 4px 12px; gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tablet-studio #tabletHeader button { border: 0; background: transparent; }
+.tablet-studio #tabletProjectButton { display: flex; align-items: center; gap: 10px; padding: 0 6px; text-align: left; min-width: 150px; }
+#tabletProjectButton small { display: block; font-size: 11px; font-weight: 400; }
+.tablet-modes { display: flex; flex: none; background: var(--bg2); border-radius: 12px; }
+.tablet-studio #tabletHeader .tablet-modes button { padding: 5px 18px; color: var(--text); }
+.tablet-studio #tabletHeader .tablet-modes button[aria-pressed=true] { background: var(--bg3); }
+#tabletHeaderActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
+#tabletHeaderActions svg { width: 22px; height: 22px; vertical-align: middle; }
+.tablet-studio #tabletHeaderActions .statusbar { max-width: 150px; font-size: 11px; justify-content: flex-end; }
+.tablet-studio #project-status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tablet-studio #tabletHeaderActions #saveButton { color: var(--accent); padding: 8px; }
+.tablet-studio #tabletSaveAlert { display: flex; flex: none; align-items: center; gap: 8px; padding: 4px 12px; color: var(--danger-text); font-size: 12px; border-bottom: 1px solid var(--border); }
+#tabletSaveAlert span { flex: 1; max-height: 66px; overflow-y: auto; }
+#tabletSaveAlert button { flex: none; }
+.tablet-studio #top-container {
+  flex: 1; min-height: 0; width: 100%; max-width: none; margin: 0;
+  display: flex; flex-direction: column; gap: 6px; padding: 8px;
+}
+.tablet-studio #video-column {
+  flex: 1; min-height: 0; height: auto; display: grid; position: relative;
+  grid-template-columns: minmax(0, 1fr) 100px; grid-template-rows: minmax(0, 1fr);
+  gap: 8px; border: 0; border-radius: 0; overflow: visible; background: transparent;
+}
+.tablet-studio #video-column > .panel-heading, .tablet-studio .transport,
+.tablet-studio #control-column, .tablet-studio #progress-container { display: none; }
+.tablet-studio .stage-surround {
+  grid-area: 1 / 1; flex: 1; min-height: 0; container-type: size; padding: 0;
+  border-radius: 12px; background: #0f1513;
+}
+.tablet-studio #video-container {
+  width: min(100%, calc(100cqh * 16 / 9)); height: auto; max-height: none;
+  aspect-ratio: 16 / 9; border-radius: 12px;
+}
+/* Keep every media layer proportional even in existing non-16:9 projects. */
+.tablet-studio #video, .tablet-studio #play-canvas, .tablet-studio #snapshot-canvas { object-fit: contain; }
+.tablet-studio #modeChip { font-size: 12px; top: 12px; left: 12px; padding: 6px 10px; }
+.tablet-studio #tabletCaptureControls { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 2px; min-height: 0; grid-area: 1 / 2; }
+.tablet-studio #tabletCaptureControls > button { flex: none; background: transparent; border-color: transparent; padding: 8px 4px; }
+.tablet-studio #tabletCaptureControls > #playButton { background: var(--bg2); }
+.tablet-studio #tabletShutter { order: -2; display: flex; flex: none; flex-direction: column; align-items: center; gap: 5px; margin: 4px 0 8px; }
+.tablet-studio #tabletShutter small { font-size: 12px; }
+.tablet-studio #captureButton {
+  width: 76px; height: 76px; min-height: 76px; padding: 5px;
+  border-radius: 50%; border: 2px solid var(--accent); background: transparent;
+  color: transparent; font-size: 0; display: block; flex: none;
+}
+.tablet-studio #captureButton > span { display: block; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); font-size: 0; }
+.tablet-studio #captureButton:active > span { transform: scale(.92); }
+.tablet-studio #captureButton kbd { display: none; }
+.tablet-studio #liveButton { order: -3; }
+.tablet-studio #tabletCaptureControls #onionToggle[aria-pressed=true] { color: var(--accent); background: var(--bg2); }
+.tablet-studio #lastFrameButton { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#lastFramePreview { width: 78px; height: 58.5px; object-fit: contain; border-radius: 6px; }
+.tablet-studio #tabletCaptureControls #framesToggle, .tablet-studio #tabletCaptureControls #tabletSpeed { font-size: 12px; color: var(--text2); }
+.tablet-studio #tabletFilmstrip { order: 1; width: 100%; flex: none; align-self: stretch; border: 0; background: var(--bg2); display: flex; flex-direction: column; min-height: 0; }
+.tablet-studio .timeline-heading { padding: 0 10px; min-height: 44px; height: 44px; flex: none; flex-wrap: nowrap; border: 0; gap: 8px; }
+.tablet-studio .timeline-heading h2 { font-size: 13px; white-space: nowrap; }
+.tablet-studio #frame-count { font-size: 12px; height: 22px; min-width: 22px; padding: 0 5px; }
+.tablet-studio .timeline-heading .panel-heading-right { width: auto; margin-left: auto; gap: 6px; flex-wrap: nowrap; }
+.tablet-studio #goToFrame { width: 64px; font-size: 16px; }
+.tablet-studio .timeline-goto { gap: 6px; }
+.tablet-studio .timeline-heading .timeline-goto label { display: block; font-size: 0; }
+.tablet-studio .timeline-goto label::after { content: 'Frame'; font-size: 12px; }
+.tablet-studio .filmstrip #goToFrameButton { position: static; clip-path: none; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 4px; }
+.tablet-studio #latestFrameButton, .tablet-studio #collapseFrames { display: block; background: transparent; border: 0; padding: 4px 8px; }
+.tablet-studio .filmstrip #thumbnail-container { flex: 1; overflow-x: auto; overflow-y: hidden; padding: 0; min-height: 0; scrollbar-width: thin; }
+.tablet-studio .filmstrip .thumb-track { margin: 6px 10px; }
+.tablet-studio .filmstrip #thumbnail-container canvas { aspect-ratio: 16 / 9; flex: none; }
+.tablet-studio .filmstrip .thumb-number { font-size: 12px; }
+.tablet-studio .timeline-help { display: none; }
+.tablet-studio .empty-hint { padding: 20px; }
+.tablet-studio #top-container > .timeline-tools {
+  order: 2;
+  display: flex; flex: none; flex-wrap: nowrap; overflow-x: auto;
+  align-items: center; justify-content: center; min-height: 58px; padding: 3px 8px;
+  background: var(--bg2); border-radius: 12px; gap: 6px;
+}
+.tablet-studio .timeline-tools .edit-group { flex: none; flex-wrap: nowrap; gap: 4px; margin: 0; padding-right: 8px; }
+.tablet-studio .timeline-tools button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 8px; background: transparent; border-color: transparent; }
+.tablet-studio .timeline-tools .edit-icon { width: 21px; height: 21px; font-size: 24px; }
+.tablet-studio .timeline-tools #frameHold { width: 48px; padding: 4px; }
+.tablet-studio .timeline-tools .timeline-hold button { width: 44px; padding: 0; }
+.tablet-studio .timeline-tools #holdSummary { display: none; }
+.tablet-studio #timelineMessage:not(:empty) { flex: 1 0 200px; }
+.tablet-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tablet-studio #tabletProject #project-controls { display: flex; flex-direction: column; }
+.tablet-studio #tabletSettings #button-container { display: block; }
+.tablet-studio #tabletSettings .live-header, .tablet-studio #tabletSettings #nextFrameHint { display: none; }
+.tablet-studio #tabletSettings .settings-group { padding: 12px 0; border: 0; }
+.tablet-studio #tabletSettings .settings-group > .hint { display: block; }
+.tablet-studio #tabletSettings #speed-container { display: block; margin: 12px 0; }
+.tablet-studio #tabletSettings #playbackSpeed { width: 100%; }
+.tablet-studio #tabletSettings #resolutionStatus { display: block; margin-top: 12px; }
+.tablet-studio #tabletSettings .timeline-zoom { justify-content: space-between; }
+
+/* Portrait: a landscape image, a shutter on its edge, then useful frame space. */
+.tablet-portrait #video-column { display: flex; flex-direction: column; flex: none; gap: 8px; }
+.tablet-portrait .stage-surround { container-type: normal; flex: none; aspect-ratio: 16 / 9; overflow: visible; }
+.tablet-portrait #video-container { width: 100%; aspect-ratio: 16 / 9; overflow: visible; }
+.tablet-portrait #video, .tablet-portrait #snapshot-canvas, .tablet-portrait #play-canvas { border-radius: 12px; }
+.tablet-portrait #tabletShutter { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); z-index: 7; margin: 0; }
+.tablet-portrait #tabletShutter small { display: none; }
+.tablet-portrait #captureButton { width: 64px; height: 64px; min-height: 64px; background: var(--bg2); box-shadow: 0 3px 12px #0005; }
+.tablet-portrait #captureButton > span { width: 48px; height: 48px; }
+.tablet-portrait #tabletCaptureControls { display: grid; grid-template-columns: 1fr 1fr 100px 1fr 1fr; align-items: center; gap: 10px; padding: 4px 12px; min-height: 56px; }
+.tablet-portrait #undoButton { grid-column: 1; grid-row: 1; }
+.tablet-portrait #onionToggle { grid-column: 2; grid-row: 1; }
+.tablet-portrait #playButton { grid-column: 4; grid-row: 1; }
+.tablet-portrait #lastFrameButton { grid-column: 5; grid-row: 1; margin: 0; }
+.tablet-portrait #lastFramePreview, .tablet-portrait #framesToggle, .tablet-portrait #tabletSpeed { display: none; }
+.tablet-portrait #tabletFilmstrip { flex: 1; min-height: 100px; }
+.tablet-portrait .filmstrip #thumbnail-container { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.tablet-portrait #selectionStatus { display: none; }
+.tablet-portrait #collapseFrames { display: none; }
+.tablet-portrait .filmstrip .thumb { align-self: start; }
+.tablet-portrait .filmstrip .thumb canvas { aspect-ratio: 16 / 9; flex: none; }
+.tablet-portrait #tabletSettings .timeline-zoom { display: none; }
+.tablet-portrait #top-container > .timeline-tools { min-height: 64px; justify-content: flex-start; }
+.tablet-portrait[data-workspace=edit] #tabletCaptureControls { display: flex; flex-direction: row; justify-content: space-between; }
+.tablet-portrait[data-workspace=edit] #liveButton { order: 0; }
+.tablet-portrait[data-workspace=edit] #tabletShutter { display: none; }
+@media (min-width: 1200px) and (min-height: 780px) {
+  .tablet-studio #top-container { padding: 12px; gap: 8px; }
+  .tablet-studio #video-column { grid-template-columns: minmax(0, 1fr) 112px; }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .tablet-studio #lastFramePreview { display: none; }
+  .tablet-studio #tabletCaptureControls { gap: 2px; padding: 0; }
+}

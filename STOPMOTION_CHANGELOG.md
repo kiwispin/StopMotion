@@ -2253,3 +2253,123 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   `tests/e2e/ui.spec.js`, `tests/e2e/quality.spec.js`, this log.
 - Decision: ACCEPTED in automated/code review; physical iPad/browser confirmation
   remains `PENDING USER TEST`. No claim of testing an actual iPad on this Windows host.
+
+### SM-102 - Separate interactive tablet design prototype (not deployed)
+
+- Owner approved the proposed clickable portrait/landscape prototype, not another
+  production implementation. No production app files changed and nothing was pushed.
+- Source: `C:/Users/master/.codex/visualizations/2026/09/19/01a0b713-bfac-7301-bacf-daa19cb0f4e4/stopmotion-mini-prototype.html`.
+  Uses the visualization skill to present interactive Capture/Edit contexts directly
+  in the conversation. The demo scene is locally drawn, not a connected camera; file
+  and export controls explicitly identify themselves as prototype-only.
+- Capture: compact project menu; large landscape image; immediately accessible
+  shutter, playback, Undo and onion slider. Landscape filmstrip is expandable.
+  Portrait uses the available space below the same 16:9 image for a frame grid.
+  Selecting a frame reveals Move, Duplicate, Delete and Hold without page scrolling.
+  Optional review controls compare left/right capture rails and persistent filmstrip.
+- Measured native design sizes: 1133x600 landscape has a 945.766x531.984 camera image;
+  744x1024 portrait has a 728x409.5 image. Both preserve 16:9 and show the same scene
+  composition; no cropping or rotation of source content is performed by the demo.
+  Conversation previews scale these logical device sizes to the available width.
+- Verification: Chromium checks passed for capture, undo, edit, duplicate, hold,
+  movement, delete, orientation switching, onion opacity, playback and export-preview
+  disclosure. No script errors or controls outside device bounds in seven inspected
+  layout/theme states. Dark/light screenshots reviewed. No physical-iPad testing claimed.
+- Draft corrections: initial malformed restore expression REFUSED by syntax check;
+  corrected before delivery. Initial portrait single-row timeline left excessive empty
+  panel space and was REFUSED in visual review; replaced by a four-column frame grid.
+  Status feedback moved away from editing actions, and selected frames scroll within
+  their own frame panel. These discarded draft forms were not retained or repeated.
+- Local QA-only wrapper, interaction script and screenshots are under ignored
+  `test-results/mini-prototype-*`; they are not app assets or a deployment.
+- Decision: functional/visual prototype checks ACCEPTED; design and implementation
+  remain `PENDING USER APPROVAL`. Live application remains at SM-101.
+
+### SM-103 - Mini and 13-inch interactive tablet mockup (not deployed)
+
+- Scope: revise the separate SM-102 prototype for both tablet sizes, not the live
+  application. No production code changed, no commit or push, and no delegation.
+  Source remains the visualization fragment recorded in SM-102. The visualization
+  skill provides the interactive size/orientation controls and review alternatives.
+- Representative browser areas (not measured physical-device browser dimensions):
+  Mini portrait 744x1024 / landscape 1133x600; 13-inch portrait 1024x1240 /
+  landscape 1366x900. Conversation rendering scales the chosen logical viewport.
+- Portrait shutter now straddles the image's lower edge (44px inside / 20px below),
+  with a 56px compact toolbar replacing the prior 108px toolbar. Onion is a one-tap
+  on/off control; Settings retains its last strength. Larger layouts show more
+  thumbnails; Mini landscape keeps the filmstrip collapsed by default.
+- Added 12/700-frame samples, bounded 24-thumbnail rendering, previous/next windows,
+  go-to-frame and Latest navigation. Save status and a switchable save warning are
+  explicitly simulated; camera, persistence and export remain demo-only.
+- Measured image areas in Capture: Mini portrait 728x409.5, Mini landscape
+  945.766x531.984; 13-inch portrait 1000x562.5, landscape 1219.75x686.109 pixels.
+  Landscape Edit images: Mini 601.078x338.094; 13-inch 1113.078x626.094 pixels.
+  Every tested stage preserves 16:9; switching orientation preserves identical
+  canvas pixels. These are prototype results, not physical-iPad validation.
+- Verification: 13 layout/theme states passed in approximately 8.5 seconds, including
+  all eight size/orientation/Capture-Edit combinations, 700-frame navigation, save
+  warning, light theme and a 736px conversation preview. Zero page errors, controls
+  outside device bounds, blocked control centres or thumbnail-content overflows.
+  Capture, last-frame review, duplicate, hold, move, delete, undo, playback and
+  remembered Onion strength passed interaction checks. Screenshots reviewed.
+- Draft decision: compressed portrait grid rows in the 700-frame sample caused
+  thumbnail/label overlap; REFUSED in visual review. Corrected with content-sized
+  rows, a minimum card height and nonshrinking canvases; regression checks now report
+  zero thumbnail overflow. Latest-frame auto-reveal also corrected within the frame
+  scroller. Those rejected draft behaviours are not retained.
+- Local QA-only files are ignored `test-results/tablet-prototype-preview.html`,
+  `test-results/tablet-prototype-check.mjs` and `test-results/tablet-*.png`.
+- Decision: prototype functional/visual checks ACCEPTED; final design remains
+  `PENDING USER APPROVAL`. Live application remains unchanged at SM-101.
+
+### SM-104 - Approved adaptive tablet studio implemented
+
+- Owner approved SM-103 for implementation, then explicitly approved publishing
+  after tests pass. Implemented directly, without delegation. Existing user changes
+  and the uncommitted SM-102/103 log entries are preserved.
+- Tablet presentation: compact Project / Capture / Edit / Settings / Export header;
+  landscape capture rail; portrait shutter straddling the image edge by 20px;
+  one-tap Onion on/off remembering strength within the session; secondary settings
+  in a dialog; contextual editing toolbar; Last frame / Latest / frame jump.
+  Mini landscape starts with frames collapsed; larger landscape shows the filmstrip.
+  Portrait uses a four- or six-column scrollable frame grid. Real save failures remain
+  visible with backup/retry actions, rather than a simulated prototype status.
+- Existing controls are moved, not cloned. Capture, frame encoding, media storage,
+  project format and video export engines are unchanged. Project locking includes
+  relocated settings. Desktop/phone layouts return to their original control homes.
+  Touch tablet breakpoints cover 651-1400px wide; narrow portrait also adapts without
+  touch emulation. Layout always uses a proportional 16:9 stage, containing existing
+  differently shaped frames without altering their saved originals.
+- Timeline renderer now supports a virtualized portrait grid and preserves keyboard
+  focus. Scrolling away from the selection no longer pins the rendered window to it.
+  Tablet thumbnails remove only the old preview letterboxing before proportionally
+  fitting their original composition; PNG originals are not decoded or changed.
+- Measured with populated animations: Mini portrait 744x1024 -> image 728x409.5;
+  Mini landscape 1133x600 -> 945.766x531.984; larger portrait 1024x1240 -> 1008x567;
+  larger landscape 1366x900 -> 1171.547x658.984 with visible filmstrip (empty project:
+  1222x687.375). These are sample browser viewports, not physical-device measurements.
+- Verification: final combined run 68 PASSED, 0 FAILED, 1 optional 700-frame MP4
+  stress test SKIPPED in 56.6s. Includes all four tablet sizes/orientations, capture,
+  duplicate/delete/move/hold/undo, playback, actual video/project downloads, settings,
+  Onion strength, actual injected autosave failure/retry, desktop restoration,
+  camera lifecycle, project recovery, HD quality and short WebM/MP4 regressions.
+  Seven dedicated tablet tests pass, with control hit-testing and viewport bounds.
+- The 700-frame UI fixture shares one immutable image: navigation to 350/700,
+  keyboard movement, scrolling away from selection, rotation and capture 701 pass;
+  fewer than 60 thumbnails remain mounted, with no overlapping grid rows. This is a
+  layout/navigation test, not a new 700-distinct-frame export or memory benchmark.
+- Portrait-source quality check: live circular target 182x182px; saved target
+  180x179px at 720x405; decoded WebM and MP4 both 720x405. No image stretching.
+  Screenshots of populated Capture/Edit in both sizes and the 700-frame grid reviewed.
+- Drafts REFUSED: inherited desktop thumbnail aspect/order rules disagreed with
+  grid measurements; corrected scoped selectors and editor order. Re-rendering lost
+  keyboard focus; fixed focus preservation and preventScroll. Updated old portrait
+  tests to open the new menus/contextual editor, and a stale non-touch timeline test
+  to allow the below-image editing layout introduced in SM-101 (1px scroll rounding).
+- Files: `index.html`, new `tablet.css`, new `js/tablet-ui.js`, `js/main.js`,
+  `js/timeline.js`, `js/project.js`, new `tests/e2e/tablet-ui.spec.js`,
+  `tests/e2e/ui.spec.js`, `tests/e2e/timeline.spec.js`, this log. Changed browser
+  assets carry `20260922-tablet-studio` cache versions. Syntax and diff checks pass.
+- Decision: ACCEPTED in automated/code/visual review; `PENDING USER IPAD TEST`.
+  Chromium touch emulation is not Safari or physical-iPad testing; WebKit is not
+  installed on this host. Publication approved, pending deployment verification.

@@ -131,7 +131,7 @@ window.stopProject = (() => {
     let initialized = false, busy = false, recoveryProtected = false;
     let revision = 0, tail = Promise.resolve(), persistenceError = '';
     let active = false, latest = null;
-    const controls = [...document.querySelectorAll('#top-container button, #top-container input, #project-controls button, #saveDialog input, #saveConfirmButton')];
+    const controls = [...document.querySelectorAll('#top-container button, #top-container input, #project-controls button, #saveDialog input, #saveConfirmButton, #tabletHeader button, #tabletSettings button, #tabletSettings input, #tabletSettings select')];
     function lock(value) {
       if (value) { an.invalidateProject(); an.cancelProjectActivity?.(); an.endPlay(); }
       busy = value; an.projectBusy = value;

@@ -355,11 +355,13 @@ for (const [width,height] of [[1024,768],[390,844]]) {
     await captureColors(page, 6); await select(page, 2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if (width === 1024) {
-      expect(await page.evaluate(() => scrollY)).toBe(0);
+      // Camera-first landscape puts editing below the image on non-touch desktop.
+      // Actual touch-tablet one-screen editing is checked in tablet-ui.spec.js.
       for (const selector of ['#video-container','.transport','#thumbnail-container']) {
+        await page.locator(selector).scrollIntoViewIfNeeded();
         const box = await page.locator(selector).boundingBox();
-        expect(box.y).toBeGreaterThanOrEqual(0);
-        expect(box.y + box.height).toBeLessThanOrEqual(height);
+        expect(box.y).toBeGreaterThanOrEqual(-1); // Fractional scroll rounding.
+        expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
       }
     }
     for (const id of ['liveButton','duplicateFrame','deleteFrame','moveLeft','moveRight','frameHold','redoButton']) {

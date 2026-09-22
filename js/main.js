@@ -45,6 +45,7 @@ window.addEventListener('load', evt => {
     document.getElementById('captureLimit').textContent = 'Up to 2,000 frames / 2 GiB compressed media. Decoded cache: up to 8 frames / 16 MiPixels. Storage quota varies; download backups.';
     const pending = an.pendingCaptures ? an.pendingCaptures() : 0;
     document.getElementById('capturePending').textContent = pending ? 'Saving ' + pending + '…' : '';
+    main.tablet?.refresh();
   };
   let captureFlashTimer = null;
   an.onCapture = () => {
@@ -232,14 +233,6 @@ window.addEventListener('load', evt => {
   };
 
   let captureButton = document.getElementById('captureButton');
-  const captureHome = captureButton.previousElementSibling;
-  const landscapeWorkspace = matchMedia('(min-width: 901px) and (max-width: 1366px) and (max-height: 800px) and (orientation: landscape)');
-  const placeCapture = () => {
-    if (landscapeWorkspace.matches) document.querySelector('.transport').prepend(captureButton);
-    else captureHome.after(captureButton);
-  };
-  landscapeWorkspace.addEventListener('change', placeCapture);
-  placeCapture();
   let undoButton = document.getElementById('undoButton');
   let clearConfirmDialog = document.getElementById('clearConfirmDialog');
   window.addEventListener("keydown", (e => {
@@ -495,8 +488,9 @@ window.addEventListener('load', evt => {
   };
 
   main.timeline = stopTimeline.connect(an);
+  main.tablet = stopTablet.connect(an);
   main.project = stopProject.connect(an);
-  an.onModeChange = updateCameraCta;
+  an.onModeChange = () => { updateCameraCta(); main.tablet.refresh(); };
 
   // Privacy: the camera stays off until the student explicitly starts it. An inline
   // ?camera=1 deep link or the test hook window.__stopmotionAutoCamera may opt in.

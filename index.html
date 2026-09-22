@@ -3,10 +3,17 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>StopMotion — Frame by frame</title>
 <link rel="stylesheet" href="animator.css?v=20260922-camera-first">
+<link rel="stylesheet" href="tablet.css?v=20260922-tablet-studio">
 <script src="js/assets.js"></script><script src="js/media.js?v=20260922-camera-first"></script><script src="js/frame-store.js"></script><script src="js/webm.js"></script>
 <script src="js/animator.js?v=20260922-camera-first"></script><script src="js/storage.js"></script>
-<script src="js/timeline.js"></script><script src="js/project.js"></script><script src="js/main.js?v=20260922-camera-first"></script>
+<script src="js/timeline.js?v=20260922-tablet-studio"></script><script src="js/project.js?v=20260922-tablet-studio"></script><script src="js/tablet-ui.js?v=20260922-tablet-studio"></script><script src="js/main.js?v=20260922-tablet-studio"></script>
 </head><body>
+<header id="tabletHeader" class="tablet-only">
+  <button id="tabletProjectButton" aria-haspopup="dialog">⌄ <span>StopMotion<small>My animation</small></span></button>
+  <div class="tablet-modes" role="group" aria-label="Workspace"><button id="captureMode" aria-pressed="true">Capture</button><button id="editMode" aria-pressed="false">Edit</button></div>
+  <div id="tabletHeaderActions"><button id="tabletSettingsButton" aria-label="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor"/><circle cx="15" cy="17" r="3" fill="currentColor"/></svg></button></div>
+</header>
+<div id="tabletSaveAlert" class="tablet-only" hidden role="alert"><span></span><button id="tabletBackup">Save a copy</button><button id="tabletRetry">Retry save</button></div>
 <header class="topbar">
   <div class="brand"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><rect x="5" y="5" width="22" height="22" rx="5" stroke="currentColor" stroke-width="2"/><path d="m13 11 8 5-8 5V11Z" fill="currentColor"/><path d="M10 2v6M22 2v6M10 24v6M22 24v6" stroke="currentColor" stroke-width="2"/></svg></span><div><h1>StopMotion</h1><small>Small moves. Big stories.</small></div></div>
   <div class="statusbar"><span class="status-dot" aria-hidden="true"></span><p id="project-status" role="status" aria-live="polite"></p></div>
@@ -29,6 +36,13 @@
         <svg id="clock-hand" viewBox="0 0 100 100" aria-hidden="true"><path d="M50 50V9" stroke="currentColor" stroke-width="3"/></svg>
       </div>
     </div></div>
+    <div id="tabletCaptureControls" class="tablet-only" aria-label="Capture and preview controls">
+      <div id="tabletShutter"><small>Capture frame</small></div>
+      <button id="onionToggle" aria-pressed="true">◉ Onion on</button>
+      <button id="lastFrameButton"><canvas id="lastFramePreview" width="96" height="72" aria-hidden="true"></canvas><span>Last frame</span></button>
+      <button id="framesToggle" aria-expanded="false" aria-controls="tabletFilmstrip">Frames</button>
+      <button id="tabletSpeed" aria-haspopup="dialog">7 fps</button>
+    </div>
     <div id="progress-container" role="progressbar" aria-label="Elapsed animation progress" title="Elapsed animation time" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-marker"></div></div>
     <div class="transport"><button id="playButton" aria-label="Play animation" aria-pressed="false">▶ Play</button><button id="liveButton" aria-pressed="true">Live camera</button><span class="hint">Preview your animation</span><div id="speed-container"><div class="field-heading"><label for="playbackSpeed">Frame rate</label><span><output id="fps" for="playbackSpeed">7.0</output> FPS</span></div><input id="playbackSpeed" type="range" min="2" max="12" step="0.5" value="7"></div><span class="transport-meta"><span id="transportFrames"></span><span aria-hidden="true">&middot;</span><output id="duration">0.00 s</output></span></div>
   </section>
@@ -54,7 +68,7 @@
       <button id="loadButton">Import WebM</button>
     </section>
   </div></aside>
-  <section class="filmstrip" aria-label="Captured frames"><div class="panel-heading timeline-heading"><h2>Your animation <span id="frame-count">0</span></h2><output id="selectionStatus">Live camera</output><div class="panel-heading-right"><output id="capturePending" class="pending-badge" aria-live="polite"></output>
+  <section id="tabletFilmstrip" class="filmstrip" aria-label="Captured frames"><div class="panel-heading timeline-heading"><h2>Your animation <span id="frame-count">0</span></h2><output id="selectionStatus">Live camera</output><div class="panel-heading-right"><output id="capturePending" class="pending-badge" aria-live="polite"></output>
       <div class="timeline-zoom" aria-label="Timeline zoom"><label for="zoomRange">Zoom</label>
         <button id="zoomOut" aria-label="Zoom out"><span class="zoom-symbol" aria-hidden="true">−</span></button>
         <input id="zoomRange" type="range" min="48" max="176" step="8" value="136" aria-label="Thumbnail size">
@@ -65,6 +79,8 @@
         <input id="goToFrame" type="number" min="1" step="1" value="1" aria-label="Go to frame number">
         <button id="goToFrameButton">Go</button>
       </span>
+      <button id="latestFrameButton" class="tablet-only">Latest</button>
+      <button id="collapseFrames" class="tablet-only" aria-label="Collapse filmstrip">⌄</button>
     </div></div>
     <div class="timeline-tools" aria-label="Timeline editing">
       <div class="edit-group" role="group" aria-label="History"><button id="undoButton"><span class="edit-icon" aria-hidden="true">↶</span> Undo</button><button id="redoButton"><span class="edit-icon" aria-hidden="true">↷</span> Redo</button></div>
@@ -77,6 +93,8 @@
 </main>
 <footer>StopMotion <span>Made for small moves and big ideas.</span></footer>
 <div id="dialog-container">
+  <dialog id="tabletProject" aria-labelledby="tabletProjectTitle"><div class="tablet-dialog-heading"><h2 id="tabletProjectTitle">Your project</h2><button data-close-tablet aria-label="Close project menu">✕</button></div><p>Changes save on this device. Download a project copy to keep a backup.</p><div id="tabletProjectContent"></div></dialog>
+  <dialog id="tabletSettings" aria-labelledby="tabletSettingsTitle"><div class="tablet-dialog-heading"><h2 id="tabletSettingsTitle">Studio settings</h2><button data-close-tablet aria-label="Close settings">✕</button></div><div id="tabletSettingsContent"></div></dialog>
   <dialog id="clearConfirmDialog" aria-labelledby="clear-title"><h2 id="clear-title">Start a new animation?</h2><p>This clears your frames, including the saved copy on this device. Save Project first if you want to keep it.</p><div class="dialog-actions"><button id="clearCancelButton" autofocus>Cancel</button><button id="clearConfirmButton" class="danger">Clear project</button></div></dialog>
   <dialog id="saveDialog" aria-labelledby="export-title">
     <h2 id="export-title">Export your animation</h2>

@@ -29,7 +29,16 @@ window.stopTimeline = (() => {
     const snapshot = () => ({frames: an.frames.slice(), webps: an.frameWebps.slice(),
       holds: an.holds.slice(), selected});
     const stride = () => thumbWidth + gap;
-    const cellHeight = () => Math.round(thumbWidth * 0.75) + 20;
+    const cellHeight = () => an.tabletUI ? Math.ceil(thumbWidth * 9 / 16) + 24 : Math.round(thumbWidth * .75) + 20;
+    function layout() {
+      if (!an.tabletPortrait) return {grid: false, columns: 1, width: thumbWidth,
+        step: stride(), row: cellHeight(), viewport: strip.clientWidth || 800, offset: strip.scrollLeft};
+      const columns = innerWidth >= 950 ? 6 : 4;
+      const width = Math.max(44, (strip.clientWidth - 20 - gap * (columns - 1)) / columns);
+      return {grid: true, columns, width, step: width + gap,
+        row: Math.ceil(width * 9 / 16) + 30,
+        viewport: strip.clientHeight || 300, offset: strip.scrollTop};
+    }
 
     function stop() {
       an.cancelProjectActivity?.();
@@ -104,41 +113,42 @@ window.stopTimeline = (() => {
       return strip.querySelector(`.thumb[data-index="${index}"] canvas`);
     }
     function ensureScroll(index) {
-      const s = stride();
-      const left = index * s, right = left + thumbWidth;
-      const viewLeft = strip.scrollLeft, viewRight = viewLeft + strip.clientWidth;
-      if (left < viewLeft) strip.scrollLeft = Math.max(0, left - s * overscan);
-      else if (right > viewRight) strip.scrollLeft = right - strip.clientWidth + s * overscan;
+      if (index < 0) return;
+      const m = layout(), position = m.grid ? 'scrollTop' : 'scrollLeft';
+      const start = m.grid ? Math.floor(index / m.columns) * m.row : index * m.step;
+      const end = start + (m.grid ? m.row : m.width) + 12;
+      if (start < m.offset) strip[position] = start;
+      else if (end > m.offset + m.viewport) strip[position] = end - m.viewport;
+    }
+    function reveal(index) {
+      ensureScroll(index); render();
     }
     function select(index, focus = false) {
       if (blocked()) return;
       stop();
       selected = Math.max(-1, Math.min(index, an.frames.length - 1));
-      if (an.frames.length > virtualizationThreshold && selected >= 0) {
+      if (selected >= 0) {
         ensureScroll(selected);
         render();
       } else {
         updateControls(); preview();
       }
-      if (focus && selected >= 0) cellCanvas(selected)?.focus();
+      if (focus && selected >= 0) cellCanvas(selected)?.focus({preventScroll: true});
     }
     function render() {
+      const focusedIndex = strip.contains(document.activeElement)
+        ? Number(document.activeElement.closest('.thumb')?.dataset.index ?? -1) : -1;
       selected = Math.min(selected, an.frames.length - 1);
       const count = an.frames.length;
       if (!count) {
         strip.replaceChildren();
       } else {
-        const s = stride();
+        const m = layout(), s = m.step;
         let start = 0, end = count;
         if (count > virtualizationThreshold) {
-          const viewport = strip.clientWidth || 800;
-          const visible = Math.ceil(viewport / s) + overscan * 2;
-          start = Math.max(0, Math.floor(strip.scrollLeft / s) - overscan);
-          end = Math.min(count, Math.ceil((strip.scrollLeft + viewport) / s) + overscan);
-          if (selected >= 0 && (selected < start || selected >= end)) {
-            start = Math.max(0, Math.min(selected - overscan, count - visible));
-            end = Math.min(count, start + visible);
-          }
+          const unit = m.grid ? m.row : s, extra = m.grid ? 1 : overscan;
+          start = Math.max(0, Math.floor(m.offset / unit) - extra) * m.columns;
+          end = Math.min(count, (Math.ceil((m.offset + m.viewport) / unit) + extra) * m.columns);
         }
         const available = new Map();
         for (const node of strip.querySelectorAll('canvas')) {
@@ -148,16 +158,29 @@ window.stopTimeline = (() => {
         }
         const track = document.createElement('div');
         track.className = 'thumb-track';
-        track.style.width = (count * s - gap) + 'px';
-        track.style.height = cellHeight() + 'px';
+        track.style.width = (m.grid ? m.columns * s - gap : count * s - gap) + 'px';
+        track.style.height = (m.grid ? Math.ceil(count / m.columns) * m.row : cellHeight()) + 'px';
         for (let index = start; index < end; index++) {
           const frame = an.frames[index];
           let canvas = available.get(frame)?.shift();
           if (!canvas) {
             canvas = document.createElement('canvas');
-            canvas.width = 96; canvas.height = 72;
-            canvas.getContext('2d').drawImage(frame.thumbnail, 0, 0);
             nodeFrames.set(canvas, frame);
+          }
+          const height = an.tabletUI ? 54 : 72;
+          if (canvas.width !== 96 || canvas.height !== height) {
+            canvas.width = 96; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!an.tabletUI) ctx.drawImage(frame.thumbnail, 0, 0);
+            else {
+              // Remove only the thumbnail's pre-existing letterbox, then contain
+              // the original composition in the tablet's landscape thumbnail.
+              const ratio = frame.width / frame.height;
+              const sw = Math.min(96, 72 * ratio), sh = Math.min(72, 96 / ratio);
+              const dw = Math.min(96, height * ratio), dh = Math.min(height, 96 / ratio);
+              ctx.drawImage(frame.thumbnail, (96-sw)/2, (72-sh)/2, sw, sh,
+                (96-dw)/2, (height-dh)/2, dw, dh);
+            }
           }
           let wrap = wrapFor.get(canvas);
           if (!wrap) {
@@ -169,7 +192,9 @@ window.stopTimeline = (() => {
             wrapFor.set(canvas, wrap);
           }
           wrap.dataset.index = String(index);
-          wrap.style.left = (index * s) + 'px';
+          wrap.style.left = ((m.grid ? index % m.columns : index) * s) + 'px';
+          wrap.style.top = (m.grid ? Math.floor(index / m.columns) * m.row : 0) + 'px';
+          wrap.style.width = m.width + 'px';
           wrap.querySelector('.thumb-number').textContent = String(index + 1);
           const hold = an.holds[index] ?? 1;
           const badge = wrap.querySelector('.thumb-hold');
@@ -177,9 +202,10 @@ window.stopTimeline = (() => {
           badge.hidden = hold <= 1;
           canvas.setAttribute('role', 'button');
           canvas.setAttribute('aria-label', `Frame ${index + 1}, hold ${hold} exposures`);
-          canvas.onclick = () => select(index);
+          canvas.onclick = () => select(index, true);
           canvas.onkeydown = event => {
             const keys = {ArrowLeft: index - 1, ArrowRight: index + 1,
+              ...(m.grid ? {ArrowUp: index - m.columns, ArrowDown: index + m.columns} : {}),
               Home: 0, End: count - 1, Enter: index, ' ': index};
             if (!(event.key in keys)) return;
             event.preventDefault(); event.stopPropagation();
@@ -193,6 +219,7 @@ window.stopTimeline = (() => {
       an.snapshotContext.clearRect(0, 0, an.w, an.h);
       if (an.frames.length) an.drawFrame(an.frames.length - 1, an.snapshotContext);
       updateControls(); preview(); an.refreshSummary?.();
+      if (focusedIndex >= 0) cellCanvas(focusedIndex)?.focus({preventScroll: true});
     }
     function commit(before) {
       past.push(before);
@@ -300,7 +327,7 @@ window.stopTimeline = (() => {
 
     const api = {snapshot, commit, reset, render, preview, updateControls,
       undo: () => travel(past, future), live: () => { selected = -1; },
-      duplicate, remove, move, setHold, goToFrame, applyZoom,
+      duplicate, remove, move, setHold, goToFrame, applyZoom, reveal,
       get selected() { return selected; }};
     an.timeline = api;
     applyZoom(Number(control('zoomRange').value) || thumbWidth);
