@@ -2372,4 +2372,9 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   assets carry `20260922-tablet-studio` cache versions. Syntax and diff checks pass.
 - Decision: ACCEPTED in automated/code/visual review; `PENDING USER IPAD TEST`.
   Chromium touch emulation is not Safari or physical-iPad testing; WebKit is not
-  installed on this host. Publication approved, pending deployment verification.
+  installed on this host.
+- Deployment: pushed app revision `e3fbe13` to `kiwispin/StopMotion` main. GitHub
+  Pages reported `built` with no error. Live HTTPS smoke check passed: all six
+  changed browser assets match the tested local sources; all four touch layouts
+  keep the shutter reachable and image 16:9; live capture and duplicate work;
+  zero script errors. Physical iPad confirmation remains the next user check.
