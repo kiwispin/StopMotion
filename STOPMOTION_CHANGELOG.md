@@ -2179,6 +2179,8 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   in 16.6s. Added an explicit iPad Mini portrait contract for one-screen live and review
   composition, stage size, Capture reachability and panel ordering. `git diff --check`
   passed apart from existing line-ending notices.
-- Files: `animator.css`, `tests/e2e/ui.spec.js`, `STOPMOTION_CHANGELOG.md`.
+- Cache delivery: `index.html` versions the stylesheet URL so Safari does not retain the
+  pre-fix portrait layout after deployment.
+- Files: `index.html`, `animator.css`, `tests/e2e/ui.spec.js`, `STOPMOTION_CHANGELOG.md`.
 - Decision: ACCEPTED (code/automated visual review); real iPad Mini confirmation remains
   `PENDING USER TEST`.
