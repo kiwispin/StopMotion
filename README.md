@@ -2,6 +2,30 @@
 
 A webcam stop-motion studio with onion skin, playback, portable projects and local autosave.
 
+**Further development and classroom-focused design by [Carl Rayner](https://www.carlrayner.com/), building on [Stefan Zager's original Stop Motion project](https://github.com/szager/stop-motion).**
+
+**[Open the studio](https://kiwispin.github.io/StopMotion/)** · **[Explore Carl's work](https://www.carlrayner.com/)** · **[Get in touch](mailto:carl@carlrayner.com)**
+
+## Why I developed this version
+
+I wanted a practical alternative to recurring app costs and advertising in the classroom.
+Developing our own version means we can shape the tools around our animation projects
+and make changes in response to student feedback.
+
+## My contribution
+
+Building on the original camera, onion-skin and animation foundation, my work on this
+version includes:
+
+- Editable project files, local autosave and recovery, with visible save errors and backup options.
+- Timeline editing, frame holds, undo/redo and navigation for longer animations.
+- An adaptive tablet workspace that prioritises the camera and accessible capture controls.
+- Camera reliability, export compatibility and automated regression testing.
+
+The [development log](STOPMOTION_CHANGELOG.md) records the changes, measured checks and
+remaining device-testing limitations. My broader work includes
+[workflow automation and custom software](https://www.carlrayner.com/ai-workflows-custom-software/).
+
 ## Run locally
 
 With Node.js and npm installed:
@@ -151,6 +175,8 @@ still need testing on the intended iPad. Desktop settings scroll internally; nar
 screens scroll normally.
 
 ## Attribution and license
+
+Further development and classroom-focused design: [Carl Rayner](https://www.carlrayner.com/).
 
 Based on [Stefan Zager's original project](https://github.com/szager/stop-motion), copyright
 2022 Stefan Zager. The 0BSD [LICENSE](LICENSE) permits use, copying, modification and
