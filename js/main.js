@@ -46,6 +46,7 @@ window.addEventListener('load', evt => {
     const pending = an.pendingCaptures ? an.pendingCaptures() : 0;
     document.getElementById('capturePending').textContent = pending ? 'Saving ' + pending + '…' : '';
     main.tablet?.refresh();
+    main.watch?.refresh();
   };
   let captureFlashTimer = null;
   an.onCapture = () => {
@@ -489,8 +490,9 @@ window.addEventListener('load', evt => {
 
   main.timeline = stopTimeline.connect(an);
   main.tablet = stopTablet.connect(an);
+  main.watch = stopWatch.connect(an);
   main.project = stopProject.connect(an);
-  an.onModeChange = () => { updateCameraCta(); main.tablet.refresh(); };
+  an.onModeChange = () => { updateCameraCta(); main.tablet.refresh(); main.watch.refresh(); };
 
   // Privacy: the camera stays off until the student explicitly starts it. An inline
   // ?camera=1 deep link or the test hook window.__stopmotionAutoCamera may opt in.

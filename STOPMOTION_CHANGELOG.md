@@ -2402,3 +2402,41 @@ These items are recorded as unsolved follow-up work, not as Stage 1 acceptance c
   No previous repair attempt repeated. Existing saved downloads should work unchanged.
 - Files: `index.html`, `tests/e2e/project.spec.js`, `tests/e2e/tablet-ui.spec.js`, this log.
   Deployment continues the approved test-then-publish workflow.
+
+### SM-106 - Large Watch mode with optional continuous looping
+
+- Owner confirmed SM-105 works on the iPad; that picker fix is now ACCEPTED by the
+  owner. Owner then approved Watch mode to view short animations without VLC/export.
+- Added Watch next to Capture/Edit on tablets and next to Play in desktop/phone
+  transport. It opens a viewport-filling, read-only preview with Pause/Play, Loop
+  on/off (on initially), frame position and Back to studio. Escape also closes it.
+  Controls overlay the image edges in landscape; proportional containment preserves
+  the full image and existing portrait-source projects. No native-fullscreen dependency.
+- Playback uses the existing PNG frames and bounded decoded cache, with one display
+  canvas. Holds and frame rate determine timing; Pause preserves elapsed time, Loop
+  off finishes on the final frame, and Replay restarts. Closing cancels pending draws
+  and releases the display canvas. Hiding the page pauses playback. Editor selection,
+  original frame objects, project metadata and normal exported duration are unchanged.
+  No dependencies, encoding step, saved-video duplication or export-engine changes.
+- Measured Watch images: 744x1024 viewport -> 744x418.5; 1133x600 ->
+  1066.656x599.984; 1024x1240 -> 1024x576; 1366x900 -> 1366x768.375.
+  Also checked phone 390x844 -> 390x219.375 and desktop 1440x900 -> 1440x810.
+  All six preserve 16:9 with reachable 44px-or-larger controls. Portrait project
+  content preserves its own 9:16 aspect ratio. Screenshots reviewed.
+- Verification: 53 PASSED, 0 failed, 1 optional 700-frame MP4 stress test skipped in
+  42.5s. Five dedicated Watch tests cover exact red/green/blue frame timing with
+  holds [3,2,1] at 10fps (0.60s), repeated loops, pause/resume, loop-off completion,
+  replay, single-frame looping, rotation, delayed-draw cancellation, selection
+  restoration, portrait originals and page-visibility pause. Project, tablet, editor,
+  short MP4/WebM and export regressions also pass; syntax and diff checks pass.
+- A 700-frame Watch fixture completed a 70-second cycle plus the start of the next
+  cycle using virtual test time, retaining all 700 frame references. It stayed within
+  the existing 8-entry / 16-MiPixel decoded-cache bounds and passed with encoder
+  methods deliberately throwing if called. This fixture shares three images; it is
+  a playback/control test, not a 700-distinct-HD-image performance benchmark.
+- Files: `index.html`, `js/main.js`, `js/tablet-ui.js`, new `js/watch.js`, new
+  `watch.css`, new `tests/e2e/watch.spec.js`, this log. Changed browser assets use
+  `20260922-watch` cache versions. Rapid frame-position updates are not live-announced.
+- Decision: ACCEPTED in code/automated/visual review; `PENDING USER IPAD TEST`.
+  Physical iPad/Safari playback has not been claimed. No prior refused production
+  modification repeated. Publish through the existing approved GitHub Pages workflow.

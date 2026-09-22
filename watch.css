@@ -1,0 +1,33 @@
+/* Watch fills the browser viewport without requiring native fullscreen support. */
+#watchDialog {
+  width: 100%; max-width: none; height: 100dvh; max-height: none;
+  margin: 0; inset: 0; border: 0; border-radius: 0; overflow: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: #090d0b; color: var(--text);
+}
+#watchDialog[open] { display: flex; flex-direction: column; }
+.watch-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; min-height: 56px; padding: 6px 12px;
+  position: absolute; z-index: 2; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right);
+  background: linear-gradient(#090d0bee, #090d0b00);
+}
+#watchTitle { color: var(--text); font-size: 16px; text-transform: none; }
+#watchSummary { color: var(--text2); font-size: 12px; }
+.watch-screen { flex: 1; min-height: 0; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; container-type: size; }
+#watchCanvas { width: min(100%, calc(100cqh * var(--watch-ratio, 1.777778))); height: auto; max-height: 100%; aspect-ratio: var(--watch-ratio, 1.777778); object-fit: contain; }
+#watchMessage { position: absolute; bottom: 12px; left: 12px; right: 12px; margin: 0; padding: 12px; background: var(--bg2); border-radius: 12px; text-align: center; }
+.watch-controls { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 64px; padding: 8px 12px; position: absolute; z-index: 2; bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); right: env(safe-area-inset-right); background: linear-gradient(#090d0b00, #090d0bee); }
+.watch-controls button { min-width: 110px; }
+#watchPosition { color: var(--text2); font-size: 12px; min-width: 100px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) {
+  .tablet-studio #tabletHeaderActions .statusbar { max-width: 100px; }
+  .tablet-studio #tabletHeader .tablet-modes button { padding-inline: 12px; }
+  #watchSummary { display: none; }
+}
+@media (max-width: 450px) {
+  .watch-heading { padding-inline: 8px; gap: 8px; }
+  #watchTitle { font-size: 14px; }
+  .watch-controls { gap: 8px; padding-inline: 8px; flex-wrap: wrap; }
+  .watch-controls button { min-width: 100px; }
+}

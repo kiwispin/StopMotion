@@ -13,7 +13,7 @@ window.stopTablet = (() => {
       node.before(marker); homes.set(node, marker); return node;
     };
     const capture = remember(el('captureButton'));
-    ['playButton', 'liveButton', 'undoButton', 'saveButton',
+    ['playButton', 'watchButton', 'liveButton', 'undoButton', 'saveButton',
       'button-container', 'project-controls', 'speed-container', 'resolutionStatus']
       .forEach(id => remember(el(id)));
     const status = remember(document.querySelector('.statusbar'));
@@ -75,6 +75,7 @@ window.stopTablet = (() => {
         if (active) {
           shutter.prepend(capture);
           rail.prepend(el('playButton'), el('undoButton'), el('liveButton'));
+          document.querySelector('.tablet-modes').append(el('watchButton'));
           el('tabletHeaderActions').prepend(status);
           el('tabletHeaderActions').append(el('saveButton'));
           el('tabletProjectContent').append(el('project-controls'));
